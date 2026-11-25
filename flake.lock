@@ -1,0 +1,66 @@
+{
+  "nodes": {
+    "nim-results": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1733582743,
+        "narHash": "sha256-KbNqt0FMuzDF4X+XM6JEaZJBypLDnvVPpnBpE7Sq6sA=",
+        "owner": "arnetheduck",
+        "repo": "nim-results",
+        "rev": "df8113dda4c2d74d460a8fa98252b0b771bf1f27",
+        "type": "github"
+      },
+      "original": {
+        "owner": "arnetheduck",
+        "repo": "nim-results",
+        "rev": "df8113dda4c2d74d460a8fa98252b0b771bf1f27",
+        "type": "github"
+      }
+    },
+    "nimver": {
+      "inputs": {
+        "nim-results": "nim-results",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1795516010,
+        "narHash": "sha256-dnUa61/bNz4SZXFXXhzvxCfbD2Sr61tjn02gF1yW+wI=",
+        "owner": "vinpogo",
+        "repo": "nimver",
+        "rev": "cd5314fbdd8a5bc50c852892405555946911be19",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vinpogo",
+        "repo": "nimver",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1795234589,
+        "narHash": "sha256-f/VVvxf5RsQgWVhUtefoca5ktVg0DA2bnkMOcmSnozo=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "2786a2a72088ecf32aea5b3ec52099e6a7cff78f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nimver": "nimver",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

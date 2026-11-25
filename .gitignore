@@ -1,0 +1,12 @@
+/nimslides
+nimcache/
+tests/test_*
+!tests/test_*.nim
+dist/
+nimble.develop
+nimble.paths
+nimbledeps
+result
+result-*
+.direnv/
+.delta/
