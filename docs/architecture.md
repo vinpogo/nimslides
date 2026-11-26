@@ -39,6 +39,7 @@ flowchart LR
 | `core/blocks.nim` | `BlockParser` cursor, paragraph fallback with hooks, `parseBlocks` |
 | `core/inlines.nim` | text, backslash escapes, soft breaks, rule dispatch, delimiter-run matching |
 | `core/layout.nim` | `wrap`, `ctx.inlines`, `layoutBlocks`, `ctx.renderBlocks`, paragraph layout |
+| `core/links.nim` | link text, inline destination/title and reference parsing shared by links and images; registers the reference definition hook |
 | `core/discover.nim` | `importAll(dir)`: compile-time import of every `.nim` file in a folder |
 | `core.nim` | re-exports core; `renderDocument(src, width)`. **Features import only this.** |
 | `features.nim` | `importAll("features")`; nothing to edit when adding a feature |
@@ -154,6 +155,16 @@ ctx.renderBlocks(children, width, gap = 1): seq[Line]   # containers
 nodes.spans(ctx, base)                                   # children of an inline node
 doc.state("<feature>", MyState)   # per-feature document state, MyState = ref object of RootObj
 Text(text: "...")                 # core's literal text node
+
+# links and images (core/links.nim); these never move p.pos, they return `stop`
+type LinkText = object            # found, text (raw, between the brackets), start, stop (after `]`)
+type LinkTarget = object          # found, url, title (escapes resolved), stop (after the tail)
+p.linkText(): LinkText            # at `[`; linkText(p.src, p.pos + 1) for an image's `![`
+p.parseLinkTail(text): LinkTarget # `(dest "title")`, else [label], [] or shortcut reference
+linkText(src, start); linkLabel(src, start); inlineTarget(src, start)  # the parts
+p.referenceTarget(text)           # reference forms only
+doc.lookupReference(label); doc.defineReference(label, url, title): bool
+normalizeLabel(label); resolveEscapes(s); parseDefinition(src)
 ```
 
 Contract details:
@@ -170,7 +181,7 @@ Contract details:
   paragraph's first, *before* the interruption check. Return a builder and
   advance past the underline. Builders receive the paragraph's lines with
   leading whitespace stripped, after start hooks ran.
-- **Paragraph start hook** (link reference definitions): runs on a finished
+- **Paragraph start hook** (core's own link reference definitions, prio 10): runs on a finished
   paragraph's lines, returns how many leading lines it consumed and stores
   what it found with `doc.state(...)`. If nothing is left, the paragraph
   disappears, and a closer's line is parsed again (`[a]: /u` + `===` gives
@@ -213,7 +224,7 @@ Paragraph hooks:
 | Prio | Hook | Feature |
 |---:|---|---|
 | 10 | closer: setext heading (`===` / `---` under a paragraph) | `heading` |
-| 10 | start: link reference definitions, stored in `doc.state("links", ...)` | `links` |
+| 10 | start: link reference definitions, stored in `doc.references` | core (`core/links.nim`) |
 
 The `-` conflicts are resolved by this order: under a paragraph line, `---`
 is a **setext heading** (closers run before interruption checks); elsewhere
@@ -236,10 +247,43 @@ reaching it.
 | — | emphasis / strong (`emphasis`) | `registerDelimiter` | `*`, `_` |
 | — | strikethrough (`strikethrough`) | `registerDelimiter` | `~` |
 
-Links and images share label and destination parsing. Features cannot import
-each other, so either handle images inside `links.nim` or first move the
-shared parsing into core as a separate core task. Decide before starting
-either feature.
+### Links and images
+
+Links and images share their parsing, which lives in `core/links.nim`, so
+the two features are independent and stay small. Core also registers the
+paragraph-start hook for reference definitions (`[label]: dest "title"`,
+title optionally on the next line); a paragraph made only of definitions
+disappears. Definitions are stored per document, first definition wins,
+labels are compared case-folded with whitespace collapsed. Neither feature
+registers a paragraph hook.
+
+A rule for `[` (links) or `!` (images) does:
+
+```nim
+parse: proc(p: InlineParser): InlineNode =
+  let text = p.linkText()                # image: linkText(p.src, p.pos + 1)
+  let target = p.parseLinkTail(text)     # not found if `text` was not found
+  if target.found:
+    result = Link(url: target.url, title: target.title,
+                  children: p.parseInlines(text.text))
+    p.pos = target.stop
+```
+
+An image is `!` followed by exactly the same text and tail; its children
+are the alt text (render them as plain text). If no tail matches, return
+nil: core keeps the `[` (or `!`) as text and goes on with the next
+character, so `[[foo]]` can still find the inner `[foo]`.
+
+**Nested links (simplification).** CommonMark forbids links inside link
+text: in `[a [b](/x)](/y)` the inner link wins and the outer brackets stay
+text. nimslides does not enforce this: the outer link matches first, and
+its text is parsed with `p.parseInlines`, which may produce an inner link.
+The links feature keeps it simple by unwrapping such inner links when it
+builds the outer one (replace an inner `Link` in `children` by its own
+children), so they show as plain link text; images inside links (`[![alt](i.png)](/u)`) are fine either
+way. Other known gaps of the core helpers: no HTML entities in destinations
+and titles, labels are lowercased instead of fully Unicode case-folded, and
+autolinks / raw HTML inside link text don't take precedence over `]`.
 
 ## Style keys
 

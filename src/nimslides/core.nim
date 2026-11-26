@@ -2,8 +2,8 @@
 ## Features import this module and nothing else of nimslides.
 
 import std/tables
-import ./core/[ast, blocks, inlines, layout, registry, types, width]
-export ast, blocks, inlines, layout, registry, types, width
+import ./core/[ast, blocks, inlines, layout, links, registry, types, width]
+export ast, blocks, inlines, layout, links, registry, types, width
 
 proc renderDocument*(
     src: string, width: int, theme = initTable[string, Style]()
