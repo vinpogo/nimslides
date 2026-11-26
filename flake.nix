@@ -46,6 +46,7 @@
         pkgs.buildNimPackage (finalAttrs: {
           pname = "nimslides";
           inherit version src;
+          lockFile = ./lock.json;
 
           nimDefines = [ "NimblePkgVersion=${finalAttrs.version}" ];
           nimFlags = [
@@ -78,6 +79,12 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          # Regenerate lock.json with `nim_lk > lock.json` after changing
+          # dependencies in nimslides.nimble. Patched until upstream parses
+          # "v"-prefixed tags (it otherwise locks the wrong revision).
+          nim_lk = pkgs.nim_lk.overrideAttrs (old: {
+            patches = (old.patches or [ ]) ++ [ ./nix/nim_lk-v-tags.patch ];
+          });
         in
         {
           default = pkgs.mkShell {
@@ -85,6 +92,7 @@
               pkgs.nim
               pkgs.nimble
               pkgs.nph
+              nim_lk
               nimver.packages.${system}.default
             ];
           };

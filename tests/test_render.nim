@@ -1,5 +1,5 @@
 import std/[sequtils, unittest]
-import nimslides/[ansi, render]
+import nimslides/render
 
 proc texts(src: string, width: int): seq[string] =
   renderSlide(src, width).lines.mapIt(it.plain)
@@ -14,12 +14,3 @@ suite "renderSlide":
 
   test "expands tabs":
     check texts("\tx", 80) == @["      x"]
-
-suite "toAnsi":
-  let line = @[Span(text: "a"), Span(text: "b", style: Style(bold: true, fg: 205))]
-
-  test "wraps styled spans in escape codes":
-    check line.toAnsi == "a\e[1;38;5;205mb\e[0m"
-
-  test "leaves the codes out without color":
-    check line.toAnsi(color = false) == "ab"

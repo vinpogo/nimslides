@@ -1,0 +1,19 @@
+Strip a leading "v" from git tags before parsing them as versions.
+
+matchRev silently skipped tags such as v0.17.0 and fell back to the
+lexically last tag, locking the wrong revision. The SBOM path already
+strips the "v" the same way.
+
+diff --git a/src/nim_lk.nim b/src/nim_lk.nim
+index 24be263..b3c7315 100644
+--- a/src/nim_lk.nim
++++ b/src/nim_lk.nim
+@@ -128,7 +128,7 @@ proc matchRev(url: string; wanted: VersionRange): GitPair =
+     var resultVersion: Version
+     for pair in pairs:
+       try:
+-        var tagVer = pair.`ref`.newVersion
++        var tagVer = pair.`ref`.strip(chars = {'v'}).newVersion
+         if tagVer.withinRange(wanted) and resultVersion < tagVer:
+           resultVersion = tagVer
+           result = pair

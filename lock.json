@@ -1,0 +1,28 @@
+{
+  "depends": [
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/hy9jv86yxhyhzphiszpzkp60ih06jjqa-source",
+      "rev": "5df9f8b2308e82be2694d21faeec1b0b78b37c72",
+      "sha256": "0lagmgk5vm57nljpychhis8bjpia7v5bnpajd2h5safy5y2cya4h",
+      "url": "https://github.com/fox0430/celina/archive/5df9f8b2308e82be2694d21faeec1b0b78b37c72.tar.gz",
+      "ref": "v0.17.0",
+      "packages": [
+        "celina"
+      ],
+      "srcDir": ""
+    },
+    {
+      "method": "fetchzip",
+      "path": "/nix/store/gxdmxzyyhmfyvybmhq6g1b1wgs7iy7an-source",
+      "rev": "b70aac15a3fdc7647997bd6cd10bccd8b2c00e54",
+      "sha256": "00z5z1m14gw266ld7yy3gvnm08d1kgij66cg4h76yllkc1k1xk0s",
+      "url": "https://github.com/nitely/nim-unicodedb/archive/b70aac15a3fdc7647997bd6cd10bccd8b2c00e54.tar.gz",
+      "ref": "v0.14.1",
+      "packages": [
+        "unicodedb"
+      ],
+      "srcDir": "src"
+    }
+  ]
+}

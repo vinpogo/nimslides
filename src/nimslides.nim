@@ -1,7 +1,7 @@
 ## nimslides: render a markdown file as slides in the terminal.
 
 import std/[parseopt, terminal]
-import nimslides/[ansi, render, viewer]
+import nimslides/[render, viewer]
 
 const NimblePkgVersion {.strdefine.} = "dev"
 
@@ -48,7 +48,7 @@ proc main() =
     present(src)
   else:
     for line in renderSlide(src, terminalWidth()).lines:
-      echo line.toAnsi(color = false)
+      echo line.plain
 
 when isMainModule:
   main()

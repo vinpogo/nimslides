@@ -11,3 +11,4 @@ bin           = @["nimslides"]
 # Dependencies
 
 requires "nim >= 2.2.0"
+requires "celina == 0.17.0"
