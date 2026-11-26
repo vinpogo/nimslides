@@ -13,3 +13,4 @@ result-*
 .direnv/
 .delta/
 .claude
+build
