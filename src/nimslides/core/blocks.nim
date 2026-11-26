@@ -131,7 +131,9 @@ proc parseBlocks*(p: BlockParser): seq[BlockNode] =
 proc parseBlocks*(p: BlockParser, lines: seq[string]): seq[BlockNode] =
   ## For containers: parses `lines` (e.g. a quote's content without the
   ## `>` markers) as blocks of their own, sharing the document state.
-  newBlockParser(lines, p.doc).parseBlocks()
+  let inner = newBlockParser(lines, p.doc)
+  inner.nested = true
+  inner.parseBlocks()
 
 proc parseDocument*(src: string, doc: DocCtx): seq[BlockNode] =
   newBlockParser(src.splitLines, doc).parseBlocks()

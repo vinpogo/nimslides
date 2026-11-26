@@ -2,9 +2,11 @@ import std/[os, sequtils, unittest]
 import nimslides/render
 
 proc texts(src: string, width: int): seq[string] =
-  renderSlide(src, width).lines.mapIt(it.plain)
+  let slides = renderSlides(src, width)
+  check slides.len == 1
+  slides[0].lines.mapIt(it.plain)
 
-suite "renderSlide":
+suite "renderSlides":
   test "indents by the margin; blank lines stay empty":
     check texts("one\n\ntwo\n", 80) == @["  one", "", "  two"]
 

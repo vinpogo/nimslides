@@ -73,15 +73,40 @@ proc scrollDelta*(event: Event, height: int): int =
   else:
     0
 
+proc slideDelta*(event: Event): int =
+  ## Which way `event` moves through the deck: 1 next, -1 previous, 0 not.
+  if event.kind != Key:
+    return 0
+  case event.key.code
+  of ArrowRight, Space:
+    1
+  of ArrowLeft, Backspace:
+    -1
+  of Char:
+    case event.key.char
+    of "l", "n", " ": 1
+    of "h", "p": -1
+    else: 0
+  else:
+    0
+
+proc counter*(current, total: int): string =
+  ## The slide number shown in the bottom right, e.g. "3/7"; empty for a
+  ## single slide.
+  if total > 1:
+    $(current + 1) & "/" & $total
+  else:
+    ""
+
 proc scrolled*(top, delta, lines, height: int): int =
   ## `top` moved by `delta` lines, kept between the first line and the
   ## point where the last line sits on the bottom row.
   clamp(top + delta, 0, maxTop(lines, height))
 
-proc paint(buf: var Buffer, slide: Slide, top: int) =
-  ## Writes `slide` into `buf`, starting at line `top`; celina crops what
-  ## doesn't fit.
-  for y in 0 ..< buf.area.height:
+proc paint(buf: var Buffer, slide: Slide, top, rows: int) =
+  ## Writes `slide` into the first `rows` rows of `buf`, starting at line
+  ## `top`; celina crops what doesn't fit.
+  for y in 0 ..< min(rows, buf.area.height):
     if top + y >= slide.lines.len:
       break
     let line = slide.lines[top + y]
@@ -90,12 +115,21 @@ proc paint(buf: var Buffer, slide: Slide, top: int) =
       buf.setString(x, y, span.text, span.style.toCelina)
       x += span.text.displayWidth
 
+proc paintCounter(buf: var Buffer, text: string) =
+  ## Writes `text` dimmed into the bottom right corner of `buf`.
+  if text.len == 0 or buf.area.height == 0:
+    return
+  let x = max(0, buf.area.width - text.displayWidth - 1)
+  buf.setString(x, buf.area.height - 1, text, colors.Style(modifiers: {Dim}))
+
 var hookTerm: Terminal ## the terminal the SIGINT hook restores
 
 proc present*(src: string) =
-  ## Shows `src` full screen until the user presses q, Escape or ctrl-c.
-  ## Slides taller than the window scroll with the arrow keys and j/k (one
-  ## line), PageUp/PageDown (one page), and the mouse wheel or touchpad.
+  ## Shows the slides of `src` full screen until the user presses q, Escape
+  ## or ctrl-c. Right/left, l/h, n/p, space/backspace change slides. Slides
+  ## taller than the window scroll with the arrow keys and j/k (one line),
+  ## PageUp/PageDown (one page), and the mouse wheel or touchpad. With more
+  ## than one slide, the bottom row shows the slide number.
   let term = newTerminal()
   # Alternate screen and raw mode. Raw mode turns off ISIG, so ctrl-c arrives
   # as a `Quit` event rather than SIGINT, and the `finally` below restores
@@ -116,9 +150,17 @@ proc present*(src: string) =
     hideCursor()
     var
       shown: Size # what is on screen; zero before the first frame
-      slide: Slide # laid out for `shown.width`
+      slides: seq[Slide] # laid out for `shown.width`; never empty
+      current = 0 # index of the slide on screen
       top = 0 # index of the slide line on the top row
       dirty = true
+    template rows(): int =
+      # rows for the slide; the bottom row holds the counter if there is one
+      if slides.len > 1:
+        max(1, shown.height - 1)
+      else:
+        shown.height
+
     while true:
       term.updateSize()
       if term.size != shown:
@@ -126,13 +168,14 @@ proc present*(src: string) =
         # and keep the offset valid for the new height. celina redraws the
         # whole screen by itself when the buffer size changes.
         if term.size.width != shown.width:
-          slide = renderSlide(src, term.size.width)
+          slides = renderSlides(src, term.size.width)
         shown = term.size
-        top = min(top, maxTop(slide.lines.len, shown.height))
+        top = min(top, maxTop(slides[current].lines.len, rows))
         dirty = true
       if dirty:
         var buf = newBuffer(shown.width, shown.height)
-        buf.paint(slide, top)
+        buf.paint(slides[current], top, rows)
+        buf.paintCounter(counter(current, slides.len))
         term.draw(buf) # sends only the cells that changed
         dirty = false
       # celina has no resize signal, so wake up regularly to check the size.
@@ -154,8 +197,14 @@ proc present*(src: string) =
             discard
           if quitting:
             break
+          let slide = clamp(current + event.slideDelta, 0, slides.high)
+          if slide != current:
+            current = slide
+            top = 0 # each slide starts at its top
+            dirty = true
+            continue
           let next =
-            top.scrolled(event.scrollDelta(shown.height), slide.lines.len, shown.height)
+            top.scrolled(event.scrollDelta(rows), slides[current].lines.len, rows)
           if next != top:
             top = next
             dirty = true

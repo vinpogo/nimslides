@@ -74,8 +74,9 @@ suite "setext headings":
     check Heading(parse("one\n  two  \n===")[0]).raw == "one\ntwo"
 
   test "--- after a blank line is not an underline":
-    check render("text\n\n---") == @["text", "", "---"] # no thematic break here
-    check parse("text\n\n---")[1] of Paragraph
+    # (a lone `---` between blank lines would be a slide separator)
+    check render("text\n\n---\nx") == @["text", "", "--- x"] # no thematic break here
+    check parse("text\n\n---\nx")[1] of Paragraph
 
   test "a setext underline wins over a lone --- under a paragraph":
     check parse("a\n---\nb").len == 2

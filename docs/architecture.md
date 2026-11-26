@@ -13,7 +13,7 @@ flowchart LR
   lay -->|"Paragraph etc.: ctx.inlines(raw)"| ip[inline parser<br>core/inlines.nim]
   ip -->|InlineNodes| lay
   lay --> lines["seq[Line] of styled Spans"]
-  lines --> rs[renderSlide<br>render.nim: adds margin]
+  lines --> rs[renderSlides<br>render.nim: adds margin]
   rs --> viewer[viewer.nim<br>paints with celina]
   rs --> pipe[nimslides.nim<br>prints plain text when piped]
 ```
@@ -24,7 +24,10 @@ flowchart LR
 2. **Inlines are parsed during layout**, not during block parsing, so
    document state collected anywhere in the document (e.g. link reference
    definitions) is complete by then.
-3. **Layout** turns each block into lines at a given width; blocks are
+3. **Slides.** Core's `slide_break` rule turns a top-level `---` between
+   blank lines into a `SlideBreak` node; `splitSlides` cuts the block list
+   there. The whole file is one document, so references work across slides.
+4. **Layout** turns each block into lines at a given width; blocks are
    separated by one blank line. Inline nodes produce spans; `wrap` breaks
    them into lines.
 
@@ -40,11 +43,12 @@ flowchart LR
 | `core/inlines.nim` | text, backslash escapes, soft breaks, rule dispatch, delimiter-run matching |
 | `core/layout.nim` | `wrap`, `ctx.inlines`, `layoutBlocks`, `ctx.renderBlocks`, paragraph layout |
 | `core/links.nim` | link text, inline destination/title and reference parsing shared by links and images; registers the reference definition hook |
+| `core/slides.nim` | the `slide_break` rule (`---` between blank lines, top level only), `splitSlides` |
 | `core/discover.nim` | `importAll(dir)`: compile-time import of every `.nim` file in a folder |
-| `core.nim` | re-exports core; `renderDocument(src, width)`. **Features import only this.** |
+| `core.nim` | re-exports core; `renderDocument(src, width)`, `renderSlides(src, width)`. **Features import only this.** |
 | `features.nim` | `importAll("features")`; nothing to edit when adding a feature |
 | `features/<name>.nim` | one markdown feature each |
-| `render.nim` | `renderSlide` = `renderDocument` + `margin`; re-exports `core/types` |
+| `render.nim` | `renderSlides` = core's `renderSlides` + `margin`; re-exports `core/types` |
 | `viewer.nim` | the only module that imports celina |
 
 Rules: features never import each other, never import celina, and never
@@ -232,6 +236,7 @@ character run before delimiter scanning.
 | 10 | indented code (`code_indented`) | no |
 | 20 | fenced code (`code_fenced`) | yes |
 | 30 | ATX heading (`heading`) | yes |
+| 35 | slide separator (`slide_break`, core) | no; needs a blank line on both sides and `p.nested == false` |
 | 40 | thematic break (`thematic_break`) | yes |
 | 50 | blockquote (`blockquote`) | yes |
 | 60 | list: bullet, ordered, task (`list`) | yes, conditionally (`p.interrupting`): not an empty item, ordered only from 1 |
@@ -249,10 +254,11 @@ Paragraph hooks:
 The `-` conflicts are resolved by this order: under a paragraph line, `---`
 is a **setext heading** (closers run before interruption checks); elsewhere
 `---`, `***`, `- - -` are a **thematic break** (40) before a **list item**
-(60) is tried; `- item` is a list. Later, `---` on its own line will also
-become the **slide separator**. Slides will be split before block parsing,
-as a core task, so the thematic break feature should not rely on `---`
-reaching it.
+(60) is tried; `- item` is a list. A top-level `---` with a blank line (or
+the start or end of the file) on both sides is the **slide separator**
+(35), so the thematic break only sees `---` that touches text or sits in a
+container. Containers parse their content with `parseBlocks(p, lines)`,
+which sets `p.nested`; a scratch `newBlockParser` does not.
 
 ### Inlines
 

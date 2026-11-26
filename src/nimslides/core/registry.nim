@@ -18,6 +18,9 @@ type
       ## true while core asks whether the current line interrupts a
       ## paragraph; rules that may only interrupt in some cases (e.g. an
       ## ordered list starting at 1) check it
+    nested*: bool
+      ## true inside a container (quote, list item), false for the
+      ## document's top level; slide separators only count at the top
 
   BlockParse* = proc(p: BlockParser): BlockNode
     ## Called with `p.pos` on a non-blank line. Returns nil if the rule does

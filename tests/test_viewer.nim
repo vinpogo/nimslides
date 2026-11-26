@@ -87,3 +87,21 @@ suite "scrolling":
   test "a slide that fits doesn't scroll":
     check 0.scrolled(1, 5, height) == 0
     check 0.scrolled(9, 10, height) == 0
+
+suite "slides":
+  test "right, l, n and space go to the next slide":
+    for e in [key(ArrowRight), key(Space), ch(" "), ch("l"), ch("n")]:
+      check e.slideDelta == 1
+
+  test "left, h, p and backspace go to the previous slide":
+    for e in [key(ArrowLeft), key(Backspace), ch("h"), ch("p")]:
+      check e.slideDelta == -1
+
+  test "scrolling keys don't change slides":
+    for e in [key(ArrowDown), key(PageUp), ch("j"), ch("q"), wheel(WheelDown)]:
+      check e.slideDelta == 0
+
+  test "the counter shows the slide number, only for decks":
+    check counter(0, 1) == ""
+    check counter(0, 3) == "1/3"
+    check counter(2, 3) == "3/3"

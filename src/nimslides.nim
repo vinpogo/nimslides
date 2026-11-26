@@ -1,6 +1,6 @@
 ## nimslides: render a markdown file as slides in the terminal.
 
-import std/[parseopt, terminal]
+import std/[parseopt, strutils, terminal, unicode]
 import nimslides/[render, viewer]
 
 const NimblePkgVersion {.strdefine.} = "dev"
@@ -8,11 +8,17 @@ const NimblePkgVersion {.strdefine.} = "dev"
 const usage = """
 Usage: nimslides [options] FILE
 
-Show FILE full screen in the terminal. Press q to quit.
-A slide taller than the window scrolls with the arrow keys or
-j/k (one line), PageUp/PageDown (one page), and the mouse wheel
-or touchpad. Hold shift to select text with the mouse.
-When stdout is not a terminal, the slide is printed instead.
+Show the slides in FILE full screen in the terminal. Slides are
+separated by a line of `---` with a blank line above and below.
+
+  right, l, n, space      next slide
+  left, h, p, backspace   previous slide
+  up/down, j/k            scroll a tall slide one line
+  PageUp/PageDown         scroll one page (also mouse wheel)
+  q, Escape               quit
+
+Hold shift to select text with the mouse. When stdout is not a
+terminal, all slides are printed instead.
 
 Options:
   -h, --help          show this help
@@ -50,8 +56,17 @@ proc main() =
   if isatty(stdout) and isatty(stdin):
     present(src)
   else:
-    for line in renderSlide(src, terminalWidth()).lines:
-      echo line.plain
+    # Slides one after another, each after a dashed line with its number,
+    # e.g. "┄┄ 2/5 ┄┄┄┄┄┄"; `┄` appears nowhere else in a slide.
+    let width = terminalWidth()
+    let slides = renderSlides(src, width)
+    for i, slide in slides:
+      if i > 0:
+        let label = "┄┄ " & $(i + 1) & "/" & $slides.len & " "
+        let fill = max(0, width - margin - label.runeLen)
+        echo "\n", ' '.repeat(margin), label, "┄".repeat(fill), "\n"
+      for line in slide.lines:
+        echo line.plain
 
 when isMainModule:
   main()
