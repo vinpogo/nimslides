@@ -12,3 +12,17 @@ bin           = @["nimslides"]
 
 requires "nim >= 2.2.0"
 requires "celina == 0.17.0"
+requires "unicodedb >= 0.13.2" # core measures text widths like celina does
+
+
+# Tasks
+
+import std/[os, strutils]
+
+task test, "Run the tests in tests/ and tests/features/":
+  # nimble's own test task does not look into subfolders.
+  for dir in ["tests", "tests/features"]:
+    for file in listFiles(dir):
+      let name = file.extractFilename
+      if name.startsWith("test_") and name.endsWith(".nim"):
+        exec "nim c -r --hints:off " & file

@@ -2,6 +2,8 @@
 nimcache/
 tests/test_*
 !tests/test_*.nim
+tests/features/test_*
+!tests/features/test_*.nim
 dist/
 nimble.develop
 nimble.paths

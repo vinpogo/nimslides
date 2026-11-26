@@ -1,16 +1,21 @@
-import std/[sequtils, unittest]
+import std/[os, sequtils, unittest]
 import nimslides/render
 
 proc texts(src: string, width: int): seq[string] =
   renderSlide(src, width).lines.mapIt(it.plain)
 
 suite "renderSlide":
-  test "shows the source as written, indented by the margin":
-    check texts("# Title\n\n*text*\n", 80) == @["  # Title", "", "  *text*"]
+  test "indents by the margin; blank lines stay empty":
+    check texts("one\n\ntwo\n", 80) == @["  one", "", "  two"]
 
-  test "cuts off lines wider than the terminal":
-    check texts("abcdef", 6) == @["  abcd"]
-    check texts("äöüß", 4) == @["  äö"]
+  test "word wraps paragraphs to the width minus the margin":
+    check texts("aa bb cc\ndd", 7) == @["  aa bb", "  cc dd"]
+    check texts("äöü äöü", 6) == @["  äöü", "  äöü"]
 
-  test "expands tabs":
-    check texts("\tx", 80) == @["      x"]
+  test "never cuts text off":
+    check texts("abcdef", 4) == @["  ab", "  cd", "  ef"]
+
+  test "the showcase renders without errors":
+    check texts(
+      readFile(currentSourcePath().parentDir / ".." / "examples" / "showcase.md"), 60
+    ).len > 0
