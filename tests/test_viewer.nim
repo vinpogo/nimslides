@@ -1,5 +1,5 @@
 import std/unittest
-import pkg/celina/core/colors
+import pkg/celina/core/[colors, events]
 import nimslides/[render, viewer]
 
 suite "toCelina":
@@ -32,3 +32,58 @@ suite "toCelina":
       bold: true, italic: true, underline: true, dim: true, strikethrough: true
     )
     check all.toCelina.modifiers == {Bold, Italic, Underline, Dim, Crossed}
+
+proc key(code: KeyCode, ch = ""): Event =
+  Event(kind: Key, key: KeyEvent(code: code, char: ch))
+
+proc ch(c: string): Event =
+  key(Char, c)
+
+proc wheel(button: MouseButton, kind = Press): Event =
+  Event(kind: Mouse, mouse: MouseEvent(kind: kind, button: button))
+
+suite "scrolling":
+  const height = 10
+
+  test "arrows and j/k scroll one line":
+    check key(ArrowDown).scrollDelta(height) == 1
+    check key(ArrowUp).scrollDelta(height) == -1
+    check ch("j").scrollDelta(height) == 1
+    check ch("k").scrollDelta(height) == -1
+
+  test "PageUp/PageDown scroll a page, keeping one line of context":
+    check key(PageDown).scrollDelta(height) == 9
+    check key(PageUp).scrollDelta(height) == -9
+    check key(PageDown).scrollDelta(1) == 1 # a one-row window still pages
+
+  test "the wheel and touchpad scroll a few lines":
+    check wheel(WheelDown).scrollDelta(height) == WheelLines
+    check wheel(WheelUp).scrollDelta(height) == -WheelLines
+
+  test "other input doesn't scroll":
+    for e in [
+      ch("x"),
+      ch("g"),
+      ch("G"),
+      key(Space),
+      key(Home),
+      key(End),
+      key(Enter),
+      wheel(Left),
+      wheel(Left, Release),
+      wheel(NoButton, Move),
+      Event(kind: Resize),
+    ]:
+      check e.scrollDelta(height) == 0
+
+  test "scrolling stops at both ends":
+    # 50 lines in 10 rows: offsets run from 0 to 40.
+    check 0.scrolled(1, 50, height) == 1
+    check 0.scrolled(-1, 50, height) == 0
+    check 3.scrolled(-9, 50, height) == 0
+    check 35.scrolled(9, 50, height) == 40
+    check 40.scrolled(WheelLines, 50, height) == 40
+
+  test "a slide that fits doesn't scroll":
+    check 0.scrolled(1, 5, height) == 0
+    check 0.scrolled(9, 10, height) == 0

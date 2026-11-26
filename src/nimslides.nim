@@ -9,6 +9,9 @@ const usage = """
 Usage: nimslides [options] FILE
 
 Show FILE full screen in the terminal. Press q to quit.
+A slide taller than the window scrolls with the arrow keys or
+j/k (one line), PageUp/PageDown (one page), and the mouse wheel
+or touchpad. Hold shift to select text with the mouse.
 When stdout is not a terminal, the slide is printed instead.
 
 Options:
