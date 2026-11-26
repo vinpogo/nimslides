@@ -1,10 +1,23 @@
 ## Layout: word wrapping, inline rendering and stacking of blocks.
 
+import std/strutils
 import ./[ast, inlines, registry, types, width]
 
 proc displayWidth*(line: Line): int =
   ## Columns `line` takes in the terminal.
   line.plain.displayWidth
+
+proc fit*(line: Line, width: int): Line =
+  ## The leading grapheme clusters of `line` that fit in `width` columns,
+  ## styles kept; for rows that must not get wider than the slide.
+  var left = width
+  for span in line:
+    let (text, w) = span.text.fit(left)
+    if text.len > 0:
+      result.add Span(text: text, style: span.style)
+    if text.len < span.text.len:
+      break
+    left -= w
 
 proc newLayoutCtx*(width: int, doc: DocCtx): LayoutCtx =
   LayoutCtx(width: max(1, width), doc: doc)
@@ -103,6 +116,24 @@ proc renderBlocks*(
   child.width = max(1, width)
   child.depth += 1
   child.layoutBlocks(children, gap)
+
+proc filledRow*(ctx: LayoutCtx, style: Style): Line =
+  ## An empty row across the full width in `style`, e.g. a card's edge.
+  @[Span(text: ' '.repeat(ctx.width), style: style)]
+
+proc literalRows*(
+    ctx: LayoutCtx, lines: seq[string], style: Style, lead = 0
+): seq[Line] =
+  ## Literal text such as code: each line hard-wrapped, indented by `lead`
+  ## columns and padded to exactly `ctx.width`, all in `style`, so the text
+  ## sits on a solid card. `lead` shrinks to keep a column for the text.
+  let lead = max(0, min(lead, ctx.width - 1))
+  for line in lines:
+    for row in line.hardWrap(ctx.width - lead):
+      let fill = max(0, ctx.width - lead - row.width)
+      result.add @[
+        Span(text: ' '.repeat(lead) & row.text & ' '.repeat(fill), style: style)
+      ]
 
 defaultStyle("paragraph", Style())
 

@@ -88,45 +88,14 @@ proc parseMarker(line: string): Marker =
 proc sameList(a, b: Marker): bool =
   a.ordered == b.ordered and a.ch == b.ch
 
-proc claimedFirst(p: BlockParser): bool =
-  ## Whether a block rule that runs before lists (e.g. a thematic break for
-  ## `* * *`) starts on the current line. Rules are asked as for an
-  ## interruption, so they don't change the document.
-  let (start, saved) = (p.pos, p.interrupting)
-  p.interrupting = true
-  defer:
-    p.pos = start
-    p.interrupting = saved
-  for rule in registered.blockRules:
-    if rule.priority >= priority:
-      break
-    if rule.parse(p) != nil:
-      return true
-    p.pos = start
-
 proc itemStart(p: BlockParser): Marker =
   ## The marker of a list item starting on the current line, if any.
   result = p.line.parseMarker
-  if result.ok and p.claimedFirst:
+  if result.ok and p.claimedBefore(priority):
     result.ok = false
 
-proc scratch(lines: seq[string]): seq[BlockNode] =
-  ## `lines` parsed as blocks with throwaway document state, to look at
-  ## their structure without recording e.g. link definitions twice.
-  newBlockParser(lines, newDocCtx()).parseBlocks()
-
-proc endsInParagraph(blocks: seq[BlockNode]): bool =
-  ## Whether the last block is a paragraph, also inside nested lists: the
-  ## case where a lazy continuation line can follow.
-  if blocks.len == 0:
-    false
-  elif blocks[^1] of Paragraph:
-    true
-  elif blocks[^1] of List:
-    let list = List(blocks[^1])
-    list.items[^1].children.endsInParagraph
-  else:
-    false
+method endsInParagraph(node: List): bool =
+  node.items.len > 0 and node.items[^1].children.endsInParagraph
 
 proc blankBetweenBlocks(lines: seq[string], count: int): bool =
   ## Whether a blank line in `lines` separates two of its `count` blocks
@@ -138,7 +107,8 @@ proc blankBetweenBlocks(lines: seq[string], count: int): bool =
       while next < lines.len and lines[next].isBlank:
         inc next
       if next < lines.len and
-          scratch(lines[0 ..< i]).len + scratch(lines[next .. ^1]).len == count:
+          scratchBlocks(lines[0 ..< i]).len + scratchBlocks(lines[next .. ^1]).len ==
+          count:
         return true
 
 proc parseItem(p: BlockParser, m: Marker): seq[string] =
@@ -148,22 +118,18 @@ proc parseItem(p: BlockParser, m: Marker): seq[string] =
   if not m.empty:
     lines.add m.text
   p.advance
-  var prevBlank = false
   while not p.eof:
     let line = p.line
     if line.isBlank:
       if lines.len == 0: # an item starts with at most one blank line
         break
       lines.add ""
-      prevBlank = true
     elif line.indentOf >= m.content:
       lines.add line[m.content .. ^1]
-      prevBlank = false
-    elif prevBlank or p.itemStart.ok or p.interruptsParagraph or
-        not scratch(lines).endsInParagraph:
+    elif p.itemStart.ok or not p.isLazy(lines):
       break
-    else: # lazy continuation: indented so the inner parser can't start a block
-      lines.add "    " & line.strip(trailing = false)
+    else:
+      lines.add line.lazyLine
     p.advance
   while lines.len > 0 and lines[^1].isBlank:
     lines.setLen lines.len - 1
@@ -213,7 +179,7 @@ proc parseList(p: BlockParser): BlockNode =
   while true:
     let lines = p.parseItem(m)
     var item = ListItem(children: p.parseBlocks(lines))
-    if item.children.len > 1 and lines.blankBetweenBlocks(scratch(lines).len):
+    if item.children.len > 1 and lines.blankBetweenBlocks(scratchBlocks(lines).len):
       list.loose = true
     item.taskOf
     list.items.add item
@@ -263,10 +229,7 @@ method layout(node: List, ctx: LayoutCtx): seq[Line] =
         else:
           Span(text: "☐", style: ctx.style("list.open"))
       )
-    var markerWidth = 0
-    for s in marker:
-      markerWidth += s.text.displayWidth
-    let indent = markerWidth + 1
+    let indent = marker.displayWidth + 1
 
     if node.loose and i > 0:
       result.add @[]
@@ -297,7 +260,7 @@ registerBlock BlockRule(
   name: "list", priority: priority, interruptsParagraph: true, parse: parseList
 )
 
-defaultStyle("list.bullet", Style(fg: Color(kind: ckIndexed, index: 205)))
-defaultStyle("list.number", Style(fg: Color(kind: ckIndexed, index: 205)))
-defaultStyle("list.done", Style(fg: Color(kind: ckIndexed, index: 114)))
-defaultStyle("list.open", Style(fg: Color(kind: ckIndexed, index: 244)))
+defaultStyle("list.bullet", Style(fg: indexed(205)))
+defaultStyle("list.number", Style(fg: indexed(205)))
+defaultStyle("list.done", Style(fg: indexed(114)))
+defaultStyle("list.open", Style(fg: indexed(244)))

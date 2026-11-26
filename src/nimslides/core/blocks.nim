@@ -77,6 +77,23 @@ proc interruptsParagraph*(p: BlockParser): bool =
   p.pos = start
   p.interrupting = saved
 
+proc claimedBefore*(p: BlockParser, priority: int): bool =
+  ## Whether a block rule that runs before `priority` starts on the current
+  ## line, e.g. a thematic break for `* * *` before lists. Rules are asked as
+  ## for an interruption (`p.interrupting`), so they don't change `p.doc`.
+  ## The cursor is left where it was.
+  let (start, saved) = (p.pos, p.interrupting)
+  p.interrupting = true
+  defer:
+    p.pos = start
+    p.interrupting = saved
+  for rule in registered.blockRules:
+    if rule.priority >= priority:
+      break
+    if rule.parse(p) != nil:
+      return true
+    p.pos = start
+
 proc parseParagraph(p: BlockParser): BlockNode =
   ## Core's fallback: lines up to a blank line, a closer or an interruption.
   var lines = @[p.line.strip(trailing = false)]
@@ -134,6 +151,26 @@ proc parseBlocks*(p: BlockParser, lines: seq[string]): seq[BlockNode] =
   let inner = newBlockParser(lines, p.doc)
   inner.nested = true
   inner.parseBlocks()
+
+proc scratchBlocks*(lines: seq[string]): seq[BlockNode] =
+  ## For containers: `lines` parsed with throwaway document state, to look at
+  ## their structure (e.g. `endsInParagraph`) without recording anything,
+  ## such as link reference definitions, in the real document.
+  newBlockParser(lines, newDocCtx()).parseBlocks()
+
+proc isLazy*(p: BlockParser, inner: seq[string]): bool =
+  ## For containers: whether the current line, which lacks the container's
+  ## marker or indent, is a lazy continuation of a paragraph left open at
+  ## the end of `inner`, the container's content lines so far. Add it to
+  ## `inner` as `lazyLine(p.line)`.
+  inner.len > 0 and not inner[^1].isBlank and not p.line.isBlank and
+    not p.interruptsParagraph and scratchBlocks(inner).endsInParagraph
+
+proc lazyLine*(line: string): string =
+  ## A lazy continuation line made safe to add to a container's content:
+  ## indented 4 spaces, so it can only continue the open paragraph, never
+  ## start a block or be a setext underline. Paragraphs drop the indent.
+  "    " & line.strip(trailing = false)
 
 proc parseDocument*(src: string, doc: DocCtx): seq[BlockNode] =
   newBlockParser(src.splitLines, doc).parseBlocks()

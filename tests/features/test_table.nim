@@ -119,11 +119,9 @@ suite "table":
 
   test "styles":
     let md = "| head |\n| - |\n| body |"
-    check styleOf(md, "╭") == Style(fg: Color(kind: ckIndexed, index: 240))
-    check styleOf(md, "│") == Style(fg: Color(kind: ckIndexed, index: 240))
-    check styleOf(md, "head") == Style(
-      bold: true, fg: Color(kind: ckIndexed, index: 81)
-    )
+    check styleOf(md, "╭") == Style(fg: indexed(240))
+    check styleOf(md, "│") == Style(fg: indexed(240))
+    check styleOf(md, "head") == Style(bold: true, fg: indexed(81))
     check styleOf(md, "body") == Style()
 
   test "wide tables shrink the widest column and wrap its cells":

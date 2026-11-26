@@ -48,5 +48,5 @@ registerInline InlineRule(
   ,
 )
 
-defaultStyle("image", Style(italic: true, fg: Color(kind: ckIndexed, index: 176)))
-defaultStyle("image.url", Style(fg: Color(kind: ckIndexed, index: 243)))
+defaultStyle("image", Style(italic: true, fg: indexed(176)))
+defaultStyle("image.url", Style(fg: indexed(243)))

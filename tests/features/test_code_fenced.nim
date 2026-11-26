@@ -2,13 +2,8 @@ import std/[sequtils, strutils, unittest]
 import ../helpers
 import nimslides/features/code_fenced # only this feature is registered
 
-const shade =
-  Style(fg: Color(kind: ckIndexed, index: 252), bg: Color(kind: ckIndexed, index: 235))
-const langStyle = Style(
-  italic: true,
-  fg: Color(kind: ckIndexed, index: 243),
-  bg: Color(kind: ckIndexed, index: 235),
-)
+const shade = Style(fg: indexed(252), bg: indexed(235))
+const langStyle = Style(italic: true, fg: indexed(243), bg: indexed(235))
 
 proc blank(width = 20): string =
   ' '.repeat(width)

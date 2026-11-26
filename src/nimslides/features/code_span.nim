@@ -51,7 +51,4 @@ registerInline InlineRule(
     p.pos = open,
 )
 
-defaultStyle(
-  "code_span",
-  Style(fg: Color(kind: ckIndexed, index: 216), bg: Color(kind: ckIndexed, index: 236)),
-)
+defaultStyle("code_span", Style(fg: indexed(216), bg: indexed(236)))

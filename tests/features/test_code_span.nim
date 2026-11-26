@@ -21,8 +21,7 @@ proc dump(nodes: seq[InlineNode]): string =
 proc inl(raw: string): string =
   parseInline(raw).dump
 
-let codeStyle =
-  Style(fg: Color(kind: ckIndexed, index: 216), bg: Color(kind: ckIndexed, index: 236))
+let codeStyle = Style(fg: indexed(216), bg: indexed(236))
 
 let withCodeSpan = snapshot()
 

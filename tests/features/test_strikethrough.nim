@@ -20,12 +20,6 @@ proc inl(raw: string): string =
 
 const struck = Style(strikethrough: true)
 
-proc runs(md: string, theme = initTable[string, Style]()): seq[(string, Style)] =
-  ## The spans of a one-line document as (text, style).
-  for line in renderDocument(md, 80, theme):
-    for span in line:
-      result.add (span.text, span.style)
-
 suite "strikethrough: structure":
   test "spec examples":
     check inl("~~Hi~~ Hello, ~there~ world!") == "del(Hi) Hello, del(there) world!" # 491
@@ -67,7 +61,7 @@ suite "strikethrough: rendering":
     check runs("~b~") == @[("b", struck)]
 
   test "styles merge with the surrounding base style":
-    let red = Style(fg: Color(kind: ckIndexed, index: 1))
+    let red = Style(fg: indexed(1))
     check runs("a ~~b~~", {"paragraph": red}.toTable) ==
       @[("a ", red), ("b", Style(strikethrough: true, fg: red.fg))]
 

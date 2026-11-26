@@ -42,6 +42,10 @@ proc `==`*(a, b: Color): bool =
   of ckRgb:
     a.r == b.r and a.g == b.g and a.b == b.b
 
+proc indexed*(index: uint8): Color =
+  ## An entry of the 256-color palette, e.g. `Style(fg: indexed(205))`.
+  Color(kind: ckIndexed, index: index)
+
 proc merge*(base, over: Style): Style =
   ## `base` with `over` on top: attributes add up, and a color of `over`
   ## replaces the one of `base` unless it is the terminal default.

@@ -2,7 +2,6 @@
 ## shaded card as fenced code, without a language. The content is literal
 ## and hard-wrapped.
 
-import std/strutils
 import ../core
 
 const
@@ -30,22 +29,12 @@ proc parseIndented(p: BlockParser): BlockNode =
 
 method layout(node: IndentedCode, ctx: LayoutCtx): seq[Line] =
   let shade = ctx.style("code_indented")
-  let lead = min(pad, ctx.width - 1) # keep at least a column for the code
-  let empty = @[Span(text: ' '.repeat(ctx.width), style: shade)]
-  result.add empty
-  for line in node.lines:
-    for row in line.hardWrap(ctx.width - lead):
-      let fill = max(0, ctx.width - lead - row.width)
-      result.add @[
-        Span(text: ' '.repeat(lead) & row.text & ' '.repeat(fill), style: shade)
-      ]
-  result.add empty
+  result.add ctx.filledRow(shade)
+  result.add ctx.literalRows(node.lines, shade, lead = pad)
+  result.add ctx.filledRow(shade)
 
 registerBlock BlockRule(
   name: "code_indented", priority: 10, interruptsParagraph: false, parse: parseIndented
 )
 
-defaultStyle(
-  "code_indented",
-  Style(fg: Color(kind: ckIndexed, index: 252), bg: Color(kind: ckIndexed, index: 235)),
-)
+defaultStyle("code_indented", Style(fg: indexed(252), bg: indexed(235)))

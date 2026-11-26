@@ -181,3 +181,74 @@ suite "paragraph hooks":
     check render("[a]: one\ntitle\n===") == @["heading title"]
     # Nothing left to underline: the closing line is parsed afresh.
     check render("[a]: one\n===") == @["==="]
+
+suite "container helpers":
+  setup:
+    restore empty
+
+  test "endsInParagraph asks containers for their last child":
+    check scratchBlocks(@["a"]).endsInParagraph
+    check not scratchBlocks(@[]).endsInParagraph
+    registerBlock lineRule("mark", "!")
+    check not scratchBlocks(@["a", "", "!x"]).endsInParagraph
+
+  test "scratchBlocks leaves the real document alone":
+    registerParagraphStart ParagraphStart(
+      name: "defs",
+      consume: proc(lines: seq[string], doc: DocCtx): int =
+        if lines[0].startsWith("def "):
+          doc.state("defs", Defs).table[lines[0]] = "x"
+          result = 1
+      ,
+    )
+    discard scratchBlocks(@["def a"])
+    let doc = newDocCtx()
+    discard parseDocument("text", doc)
+    check doc.state("defs", Defs).table.len == 0
+
+  test "claimedBefore asks only earlier rules, as an interruption":
+    var sawInterrupting = false
+    registerBlock BlockRule(
+      name: "early",
+      priority: 10,
+      parse: proc(p: BlockParser): BlockNode =
+        sawInterrupting = p.interrupting
+        if p.line == "x":
+          p.advance
+          result = Marker()
+      ,
+    )
+    registerBlock lineRule("late", "y", priority = 50)
+    let p = newBlockParser(@["x", "y"], newDocCtx())
+    check p.claimedBefore(20)
+    check sawInterrupting and not p.interrupting
+    check p.pos == 0
+    check not p.claimedBefore(10)
+    p.advance
+    check p.claimedBefore(100) # "late" runs before 100
+    check not p.claimedBefore(50)
+
+  test "isLazy: a non-blank, non-interrupting line after an open paragraph":
+    registerBlock lineRule("mark", "!", interrupts = true)
+    let p = newBlockParser(@["b", "!x", ""], newDocCtx())
+    check p.isLazy(@["a"])
+    check not p.isLazy(@[])
+    check not p.isLazy(@["a", ""])
+    check not p.isLazy(@["!x"]) # no open paragraph
+    p.advance
+    check not p.isLazy(@["a"]) # interrupts
+    p.advance
+    check not p.isLazy(@["a"]) # blank
+
+  test "lazyLine can only continue a paragraph":
+    registerParagraphCloser ParagraphCloser(
+      name: "underline",
+      close: proc(p: BlockParser): ParagraphBuild =
+        if p.line.indentOf <= 3 and p.line.strip == "===":
+          p.advance
+          result = proc(lines: seq[string]): BlockNode =
+            Marker(text: "heading")
+      ,
+    )
+    check lazyLine("  ===") == "    ==="
+    check render("a\n" & lazyLine("===")) == @["a ==="]

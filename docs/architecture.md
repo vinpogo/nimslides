@@ -35,15 +35,16 @@ flowchart LR
 
 | Module | Responsibility |
 |---|---|
-| `core/types.nim` | `Color`, `Style`, `Span`, `Line`, `Slide`, `plain`, `merge` |
+| `core/types.nim` | `Color`, `Style`, `Span`, `Line`, `Slide`, `plain`, `merge`, `indexed` |
 | `core/width.nim` | display width and grapheme clusters; a copy of celina's logic, checked against celina in `tests/test_layout.nim` |
 | `core/ast.nim` | open node types `BlockNode`, `InlineNode` with base methods; core's `Paragraph` and `Text`; `DocCtx`, `LayoutCtx` |
 | `core/registry.nim` | rule types, `register*` procs, `defaultStyle`, `ctx.style(key)` |
-| `core/blocks.nim` | `BlockParser` cursor, paragraph fallback with hooks, `parseBlocks` |
+| `core/blocks.nim` | `BlockParser` cursor, paragraph fallback with hooks, `parseBlocks`, container helpers (`isLazy`, `claimedBefore`, `scratchBlocks`) |
 | `core/inlines.nim` | text, backslash escapes, soft breaks, rule dispatch, delimiter-run matching |
-| `core/layout.nim` | `wrap`, `ctx.inlines`, `layoutBlocks`, `ctx.renderBlocks`, paragraph layout |
+| `core/layout.nim` | `wrap`, `ctx.inlines`, `layoutBlocks`, `ctx.renderBlocks`, `ctx.literalRows`, `line.fit`, paragraph layout |
 | `core/links.nim` | link text, inline destination/title and reference parsing shared by links and images; registers the reference definition hook |
 | `core/slides.nim` | the `slide_break` rule (`---` between blank lines, top level only), `splitSlides` |
+| `core/html.nim` | HTML tag grammar (tag names, attributes, open and closing tags) shared by `html` and `html_inline` |
 | `core/discover.nim` | `importAll(dir)`: compile-time import of every `.nim` file in a folder |
 | `core.nim` | re-exports core; `renderDocument(src, width)`, `renderSlides(src, width)`. **Features import only this.** |
 | `features.nim` | `importAll("features")`; nothing to edit when adding a feature |
@@ -142,6 +143,10 @@ type ParagraphBuild = proc(lines: seq[string]): BlockNode
 p.line; p.peek(offset); p.advance(n); p.eof; p.pos; p.lines; p.doc
 p.takeWhile(pred); p.interrupting; p.interruptsParagraph()
 p.parseBlocks(lines)        # containers: parse inner lines, shares doc
+p.claimedBefore(priority)   # does a rule that runs before `priority` start here? (`* * *` vs a list)
+p.isLazy(inner); lazyLine(line)  # containers: lazy continuation lines, see below
+scratchBlocks(lines)        # parse with throwaway doc state, to inspect structure only
+method endsInParagraph(node: MyContainer): bool  # containers: ask the last child
 isBlank(line); indentOf(line); expandTabs(line)
 
 # inlines (core/registry.nim, core/inlines.nim)
@@ -156,6 +161,8 @@ ctx.width; ctx.depth; ctx.doc; ctx.style(key)
 ctx.inlines(raw, base): seq[Span]
 wrap(spans, width): seq[Line]
 ctx.renderBlocks(children, width, gap = 1): seq[Line]   # containers
+ctx.literalRows(lines, style, lead): seq[Line]  # code-like text: hard-wrapped, padded to ctx.width
+ctx.filledRow(style): Line                      # an empty full-width row, e.g. a card's edge
 nodes.spans(ctx, base)                                   # children of an inline node
 node.plainText(ctx); nodes.plainText(ctx)  # text without styles, e.g. image alt text
 doc.state("<feature>", MyState)   # per-feature document state, MyState = ref object of RootObj
@@ -166,7 +173,17 @@ newText("...")                    # the same, typed InlineNode: @[newText("a")]
 displayWidth(s); line.displayWidth  # terminal columns of a string or a Line
 for (text, width) in s.clusters     # grapheme clusters; never split one
 fit(s, width): (text, width)        # the leading clusters that fit
+line.fit(width): Line               # the same for a styled Line
 hardWrap(s, width): seq[(text, width)]  # literal text cut into rows, spaces kept (code, tables)
+
+# styles (core/types.nim)
+Style(bold, italic, underline, dim, strikethrough, fg, bg); base.merge(over); line.plain
+indexed(205)                        # a 256-palette Color: Style(fg: indexed(205))
+
+# html tags (core/html.nim); like links, these take (s, start) and return the index after the match, or -1
+s.openTagEnd(start); s.closingTagEnd(start); s.tagEnd(start)  # at `<`
+s.tagNameEnd(i)                     # `i` if no tag name starts there
+s.skip(i, chars); htmlSpace         # whitespace inside tags includes "\n"
 
 # links and images (core/links.nim); these never move p.pos, they return `stop`
 type LinkText = object            # found, text (raw, between the brackets), start, stop (after `]`)
@@ -192,7 +209,17 @@ Contract details:
 - **Paragraph closer** (setext headings): checked on every line after a
   paragraph's first, *before* the interruption check. Return a builder and
   advance past the underline. Builders receive the paragraph's lines with
-  leading whitespace stripped, after start hooks ran.
+  leading whitespace stripped, after start hooks ran. A closer must ignore
+  lines indented 4 or more spaces, as every setext underline does: that is
+  how `lazyLine` keeps lazy lines from closing a paragraph.
+- **Containers** (block quotes, lists) parse their content with
+  `p.parseBlocks(inner)`. While `p.interrupting`, only check the marker,
+  advance and return an empty node; never parse content then. A line without
+  the container's marker continues it lazily when `p.isLazy(inner)`; add it
+  as `lazyLine(p.line)`. Override `endsInParagraph` to return
+  `children.endsInParagraph`, so lazy lines also reach paragraphs nested in
+  other containers. Look at content structure only via `scratchBlocks`, never
+  by reading `registered` directly.
 - **Paragraph start hook** (core's own link reference definitions, prio 10): runs on a finished
   paragraph's lines, returns how many leading lines it consumed and stores
   what it found with `doc.state(...)`. If nothing is left, the paragraph

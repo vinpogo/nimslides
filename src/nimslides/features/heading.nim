@@ -20,7 +20,7 @@ method layout(node: Heading, ctx: LayoutCtx): seq[Line] =
   if node.level in ruleChars.low .. ruleChars.high and result.len > 0:
     var widest = 0
     for line in result:
-      widest = max(widest, line.plain.displayWidth)
+      widest = max(widest, line.displayWidth)
     result.add @[
       Span(text: ruleChars[node.level].repeat(widest), style: ctx.style(key & ".rule"))
     ]
@@ -84,13 +84,11 @@ registerParagraphCloser ParagraphCloser(
   ,
 )
 
-defaultStyle("heading.1", Style(bold: true, fg: Color(kind: ckIndexed, index: 205)))
-defaultStyle("heading.2", Style(bold: true, fg: Color(kind: ckIndexed, index: 81)))
-defaultStyle("heading.3", Style(bold: true, fg: Color(kind: ckIndexed, index: 221)))
-defaultStyle("heading.4", Style(bold: true, fg: Color(kind: ckIndexed, index: 114)))
-defaultStyle("heading.5", Style(bold: true, fg: Color(kind: ckIndexed, index: 147)))
-defaultStyle(
-  "heading.6", Style(bold: true, italic: true, fg: Color(kind: ckIndexed, index: 245))
-)
-defaultStyle("heading.1.rule", Style(fg: Color(kind: ckIndexed, index: 205)))
-defaultStyle("heading.2.rule", Style(fg: Color(kind: ckIndexed, index: 81)))
+defaultStyle("heading.1", Style(bold: true, fg: indexed(205)))
+defaultStyle("heading.2", Style(bold: true, fg: indexed(81)))
+defaultStyle("heading.3", Style(bold: true, fg: indexed(221)))
+defaultStyle("heading.4", Style(bold: true, fg: indexed(114)))
+defaultStyle("heading.5", Style(bold: true, fg: indexed(147)))
+defaultStyle("heading.6", Style(bold: true, italic: true, fg: indexed(245)))
+defaultStyle("heading.1.rule", Style(fg: indexed(205)))
+defaultStyle("heading.2.rule", Style(fg: indexed(81)))

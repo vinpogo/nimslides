@@ -2,9 +2,6 @@ import std/[strutils, unittest]
 import ../helpers
 import nimslides/features/heading # only this feature is registered
 
-proc indexed(i: uint8): Color =
-  Color(kind: ckIndexed, index: i)
-
 suite "ATX headings":
   test "each level renders without the hashes":
     check render("# One") == @["One", "━━━"]

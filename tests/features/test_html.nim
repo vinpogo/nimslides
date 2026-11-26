@@ -156,7 +156,7 @@ suite "html blocks: rendering":
   test "other blocks show their raw text":
     check render("<div>\n  *hi*\n</div>") == @["<div>", "  *hi*", "</div>"]
     check render("<pre>\na\n\nb\n</pre>") == @["<pre>", "a", "", "b", "</pre>"]
-    check styleOf("<div>", "<div>") == Style(fg: Color(kind: ckIndexed, index: 243))
+    check styleOf("<div>", "<div>") == Style(fg: indexed(243))
 
   test "long lines hard-wrap and keep within the width":
     check render("<div class=\"abcdefghij\">", 10) ==

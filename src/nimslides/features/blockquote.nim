@@ -23,34 +23,8 @@ proc quoteContent(line: string, content: var string): bool =
   content = line[start .. ^1]
   true
 
-proc endsInParagraph(blocks: seq[BlockNode]): bool =
-  ## Whether the last block is a paragraph, possibly inside nested quotes:
-  ## only then can a lazy line continue it.
-  if blocks.len == 0:
-    false
-  elif blocks[^1] of Paragraph:
-    true
-  elif blocks[^1] of BlockQuote:
-    BlockQuote(blocks[^1]).children.endsInParagraph
-  else:
-    false
-
-proc closesParagraph(p: BlockParser): bool =
-  ## Whether a paragraph closer (a setext underline) matches the current
-  ## line. The cursor is left where it was.
-  let at = p.pos
-  for closer in registered.closers:
-    let build = closer.close(p)
-    p.pos = at
-    if build != nil:
-      return true
-
-proc isLazy(p: BlockParser, inner: seq[string]): bool =
-  ## Whether the current line, which has no `>`, continues a paragraph that
-  ## is open at the end of `inner`. The trial parse uses a throwaway
-  ## document, so nothing is recorded in `p.doc`.
-  inner.len > 0 and not inner[^1].isBlank and not p.interruptsParagraph and
-    newBlockParser(inner, newDocCtx()).parseBlocks().endsInParagraph
+method endsInParagraph(node: BlockQuote): bool =
+  node.children.endsInParagraph
 
 registerBlock BlockRule(
   name: "blockquote",
@@ -67,21 +41,16 @@ registerBlock BlockRule(
     while not p.eof:
       if p.line.quoteContent(content):
         inner.add content
-      elif p.line.isBlank or not p.isLazy(inner):
-        break
-      elif p.closesParagraph:
-        # A lazy line is paragraph text, never a setext underline: escape
-        # its first character (`=` or `-`, both escapable punctuation).
-        let indent = p.line.indentOf
-        inner.add p.line[0 ..< indent] & "\\" & p.line[indent .. ^1]
+      elif p.isLazy(inner):
+        inner.add p.line.lazyLine
       else:
-        inner.add p.line
+        break
       p.advance
     BlockQuote(children: p.parseBlocks(inner)),
 )
 
-defaultStyle("blockquote.bar", Style(fg: Color(kind: ckIndexed, index: 99)))
-defaultStyle("blockquote", Style(italic: true, fg: Color(kind: ckIndexed, index: 250)))
+defaultStyle("blockquote.bar", Style(fg: indexed(99)))
+defaultStyle("blockquote", Style(italic: true, fg: indexed(250)))
 
 method layout(node: BlockQuote, ctx: LayoutCtx): seq[Line] =
   # The bar and its space need 2 columns; very narrow slides drop the space,

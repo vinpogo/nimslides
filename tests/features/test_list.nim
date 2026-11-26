@@ -185,8 +185,8 @@ suite "task items":
 
   test "glyphs and styles":
     check render("- [ ] open\n- [x] done") == @["☐ open", "✔ done"]
-    check styleOf("- [x] done", "✔") == Style(fg: Color(kind: ckIndexed, index: 114))
-    check styleOf("- [ ] open", "☐") == Style(fg: Color(kind: ckIndexed, index: 244))
+    check styleOf("- [x] done", "✔") == Style(fg: indexed(114))
+    check styleOf("- [ ] open", "☐") == Style(fg: indexed(244))
     check styleOf("- [ ] open", "open") == Style()
 
   test "in an ordered list the box follows the number":
@@ -198,8 +198,8 @@ suite "list rendering":
       @["• a", "  ◦ b", "    ▪ c", "      ‣ d", "        • e"]
 
   test "bullet and number styles":
-    check styleOf("- a", "•") == Style(fg: Color(kind: ckIndexed, index: 205))
-    check styleOf("1. a", "1.") == Style(fg: Color(kind: ckIndexed, index: 205))
+    check styleOf("- a", "•") == Style(fg: indexed(205))
+    check styleOf("1. a", "1.") == Style(fg: indexed(205))
     check styleOf("- a", "a") == Style()
 
   test "numbers are right-aligned":

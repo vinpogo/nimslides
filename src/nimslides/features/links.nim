@@ -24,9 +24,7 @@ method spans(node: Link, ctx: LayoutCtx, base: Style): seq[Span] =
   if node.nested: # the outer link already styles the text and shows its url
     return node.children.spans(ctx, base)
   result = node.children.spans(ctx, base.merge(ctx.style("links.text")))
-  var text = ""
-  for span in result:
-    text.add span.text
+  let text = result.plain
   if node.url.len > 0 and node.url != text and node.url != "mailto:" & text:
     result.add Span(text: " ", style: base)
     result.add Span(
@@ -126,7 +124,5 @@ registerInline InlineRule(
   ,
 )
 
-defaultStyle(
-  "links.text", Style(underline: true, fg: Color(kind: ckIndexed, index: 75))
-)
-defaultStyle("links.url", Style(fg: Color(kind: ckIndexed, index: 243)))
+defaultStyle("links.text", Style(underline: true, fg: indexed(75)))
+defaultStyle("links.url", Style(fg: indexed(243)))

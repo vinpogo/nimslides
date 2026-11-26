@@ -28,8 +28,8 @@ proc inl(md: string): string =
   parseInlines(Paragraph(blocks[0]).raw, doc).dump
 
 const
-  textStyle = Style(underline: true, fg: Color(kind: ckIndexed, index: 75))
-  urlStyle = Style(fg: Color(kind: ckIndexed, index: 243))
+  textStyle = Style(underline: true, fg: indexed(75))
+  urlStyle = Style(fg: indexed(243))
 
 suite "inline links":
   test "destination and title (482, 483, 486, 487)":
@@ -165,8 +165,7 @@ suite "rendering":
     check styleOf(md, " c") == Style()
 
   test "the link style goes on top of the surrounding style":
-    let theme =
-      {"paragraph": Style(bold: true, fg: Color(kind: ckIndexed, index: 1))}.toTable
+    let theme = {"paragraph": Style(bold: true, fg: indexed(1))}.toTable
     let line = renderDocument("[a](/u)", 40, theme)[0]
     check line[0].style == Style(bold: true, underline: true, fg: textStyle.fg)
     check line[^1].style == Style(bold: true, fg: urlStyle.fg)

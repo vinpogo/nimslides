@@ -2,8 +2,7 @@ import std/[strutils, tables, unittest]
 import ../helpers
 import nimslides/features/code_indented # only this feature is registered
 
-const shade =
-  Style(fg: Color(kind: ckIndexed, index: 252), bg: Color(kind: ckIndexed, index: 235))
+const shade = Style(fg: indexed(252), bg: indexed(235))
 
 proc blank(width = 20): string =
   ' '.repeat(width)

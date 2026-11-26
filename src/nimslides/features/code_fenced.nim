@@ -57,12 +57,9 @@ proc parseFence(p: BlockParser): BlockNode =
 
 method layout(node: FencedCode, ctx: LayoutCtx): seq[Line] =
   let shade = ctx.style("code_fenced")
-  let lead = min(pad, ctx.width - 1) # keep at least a column for the code
-  let empty = @[Span(text: ' '.repeat(ctx.width), style: shade)]
-
   let lang = node.lang.fit(max(0, ctx.width - pad))
   if lang.width == 0:
-    result.add empty
+    result.add ctx.filledRow(shade)
   else:
     let right = min(pad, ctx.width - lang.width)
     let left = ctx.width - lang.width - right
@@ -72,28 +69,14 @@ method layout(node: FencedCode, ctx: LayoutCtx): seq[Line] =
     top.add Span(text: lang.text, style: shade.merge(ctx.style("code_fenced.lang")))
     top.add Span(text: ' '.repeat(right), style: shade)
     result.add top
-
-  for line in node.lines:
-    for row in line.hardWrap(ctx.width - lead):
-      let fill = max(0, ctx.width - lead - row.width)
-      result.add @[
-        Span(text: ' '.repeat(lead) & row.text & ' '.repeat(fill), style: shade)
-      ]
-  result.add empty
+  result.add ctx.literalRows(node.lines, shade, lead = pad)
+  result.add ctx.filledRow(shade)
 
 registerBlock BlockRule(
   name: "code_fenced", priority: 20, interruptsParagraph: true, parse: parseFence
 )
 
+defaultStyle("code_fenced", Style(fg: indexed(252), bg: indexed(235)))
 defaultStyle(
-  "code_fenced",
-  Style(fg: Color(kind: ckIndexed, index: 252), bg: Color(kind: ckIndexed, index: 235)),
-)
-defaultStyle(
-  "code_fenced.lang",
-  Style(
-    italic: true,
-    fg: Color(kind: ckIndexed, index: 243),
-    bg: Color(kind: ckIndexed, index: 235),
-  ),
+  "code_fenced.lang", Style(italic: true, fg: indexed(243), bg: indexed(235))
 )

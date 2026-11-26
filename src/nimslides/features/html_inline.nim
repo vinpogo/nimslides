@@ -18,19 +18,6 @@ type HtmlInline* = ref object of InlineNode
 method spans(node: HtmlInline, ctx: LayoutCtx, base: Style): seq[Span] =
   discard # hidden: terminals can't render HTML
 
-const
-  Space = {' ', '\t', '\n'}
-  TagChars = Letters + Digits + {'-'}
-  AttrStart = Letters + {'_', ':'}
-  AttrChars = Letters + Digits + {'_', '.', ':', '-'}
-  NotUnquoted = Space + {'"', '\'', '=', '<', '>', '`'}
-
-proc skip(s: string, i: int, chars: set[char]): int =
-  ## The index after the run of `chars` starting at `i`.
-  result = i
-  while result < s.len and s[result] in chars:
-    inc result
-
 proc after(s: string, i: int, terminator: string): int =
   ## The index after the first `terminator` at or after `i`, or -1.
   let at = s.find(terminator, i)
@@ -38,53 +25,6 @@ proc after(s: string, i: int, terminator: string): int =
     -1
   else:
     at + terminator.len
-
-proc attrValue(s: string, i: int): int =
-  ## The index after an attribute value starting at `i`, or -1.
-  if i >= s.len:
-    return -1
-  if s[i] in {'"', '\''}:
-    let close = s.find(s[i], i + 1)
-    return (if close < 0: -1 else: close + 1)
-  result = s.skip(i, AllChars - NotUnquoted)
-  if result == i:
-    result = -1
-
-proc openTag(s: string, start: int): int =
-  ## The index after an open tag starting with `<` at `start`, or -1.
-  var i = start + 1
-  if i >= s.len or s[i] notin Letters:
-    return -1
-  i = s.skip(i, TagChars)
-  while true:
-    let ws = s.skip(i, Space)
-    if ws > i and ws < s.len and s[ws] in AttrStart: # attribute
-      i = s.skip(ws, AttrChars)
-      let eq = s.skip(i, Space)
-      if eq < s.len and s[eq] == '=':
-        i = s.attrValue(s.skip(eq + 1, Space))
-        if i < 0:
-          return -1
-    else:
-      i = ws
-      break
-  if i < s.len and s[i] == '/':
-    inc i
-  if i < s.len and s[i] == '>':
-    i + 1
-  else:
-    -1
-
-proc closingTag(s: string, start: int): int =
-  ## The index after a closing tag starting with `</` at `start`, or -1.
-  var i = start + 2
-  if i >= s.len or s[i] notin Letters:
-    return -1
-  i = s.skip(s.skip(i, TagChars), Space)
-  if i < s.len and s[i] == '>':
-    i + 1
-  else:
-    -1
 
 proc htmlEnd(s: string, start: int): (int, bool) =
   ## The index after the raw HTML starting with `<` at `start` (-1 if there
@@ -105,9 +45,9 @@ proc htmlEnd(s: string, start: int): (int, bool) =
   elif at("<!") and start + 2 < s.len and s[start + 2] in Letters:
     (s.after(start + 3, ">"), false)
   elif at("</"):
-    (s.closingTag(start), false)
+    (s.closingTagEnd(start), false)
   else:
-    (s.openTag(start), false)
+    (s.openTagEnd(start), false)
 
 registerInline InlineRule(
   name: "html_inline",
@@ -119,8 +59,8 @@ registerInline InlineRule(
     if stop > 0:
       result = HtmlInline(raw: p.src[start ..< stop], comment: comment)
       p.pos = stop
-      if start == 0 or p.src[start - 1] in Space:
+      if start == 0 or p.src[start - 1] in htmlSpace:
         # Hidden HTML leaves no gap: `a <br/> b` reads "a b".
-        p.pos = p.src.skip(stop, Space)
+        p.pos = p.src.skip(stop, htmlSpace)
   ,
 )

@@ -42,4 +42,4 @@ registerBlock BlockRule(
   ,
 )
 
-defaultStyle("thematic_break", Style(fg: Color(kind: ckIndexed, index: 240)))
+defaultStyle("thematic_break", Style(fg: indexed(240)))

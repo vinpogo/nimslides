@@ -105,36 +105,16 @@ proc parseTable(p: BlockParser): BlockNode =
 
 # Layout
 
-proc lineWidth(line: Line): int =
-  for span in line:
-    result += span.text.displayWidth
-
-proc fitLine(line: Line, width: int): Line =
-  ## `line` cut to at most `width` columns between grapheme clusters; only
-  ## needed when a cluster is wider than its column.
-  var w = 0
-  for span in line:
-    var text = ""
-    for (c, cw) in span.text.clusters:
-      if w + cw > width:
-        break
-      text.add c
-      w += cw
-    if text.len > 0:
-      result.add Span(text: text, style: span.style)
-    if text.len < span.text.len:
-      break
-
 proc cellLines(spans: seq[Span], width: int): seq[Line] =
   ## A cell's content wrapped to `width` columns; at least one line.
   for line in wrap(spans, width):
-    result.add line.fitLine(width)
+    result.add line.fit(width)
   if result.len == 0:
     result.add @[]
 
 proc aligned(line: Line, width: int, align: Align, style: Style): Line =
   ## `line` padded to `width` columns in `style`, as `align` says.
-  let fill = max(0, width - line.lineWidth)
+  let fill = max(0, width - line.displayWidth)
   let left =
     case align
     of alCenter:
@@ -192,7 +172,7 @@ method layout(node: GfmTable, ctx: LayoutCtx): seq[Line] =
   for row in cells:
     for i, spans in row:
       for line in wrap(spans, high(int) div 2):
-        natural[i] = max(natural[i], line.lineWidth)
+        natural[i] = max(natural[i], line.displayWidth)
   for w in natural.mitems:
     w = max(1, w)
   let widths = columnWidths(natural, ctx.width)
@@ -226,12 +206,12 @@ method layout(node: GfmTable, ctx: LayoutCtx): seq[Line] =
   lines.add border(widths, "╰", "┴", "╯", borderStyle)
 
   for line in lines: # only when even 1-column cells do not fit
-    result.add line.fitLine(ctx.width)
+    result.add line.fit(ctx.width)
 
 registerBlock BlockRule(
   name: "table", priority: 80, interruptsParagraph: false, parse: parseTable
 )
 
-defaultStyle("table.border", Style(fg: Color(kind: ckIndexed, index: 240)))
-defaultStyle("table.header", Style(bold: true, fg: Color(kind: ckIndexed, index: 81)))
+defaultStyle("table.border", Style(fg: indexed(240)))
+defaultStyle("table.header", Style(bold: true, fg: indexed(81)))
 defaultStyle("table.cell", Style())

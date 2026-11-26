@@ -67,7 +67,7 @@ suite "thematic break: layout":
     check render("Foo\n***\nbar", 10) == @["Foo", "", rule(10), "", "bar"]
 
   test "style":
-    check styleOf("***", "─") == Style(fg: Color(kind: ckIndexed, index: 240))
+    check styleOf("***", "─") == Style(fg: indexed(240))
 
   test "the example renders":
     let lines = render(example("thematic_break"), 40)

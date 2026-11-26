@@ -81,12 +81,13 @@ suite "blockquote: markers":
 suite "blockquote: lazy lines and setext underlines":
   setup:
     let saved = snapshot()
-    # A stand-in for the heading feature's setext closer.
+    # A stand-in for the heading feature's setext closer; like any setext
+    # underline it may be indented by at most 3 spaces.
     registerParagraphCloser ParagraphCloser(
       name: "test.setext",
       priority: 10,
       close: proc(p: BlockParser): ParagraphBuild =
-        if p.line.strip == "===":
+        if p.line.indentOf <= 3 and p.line.strip == "===":
           p.advance
           result = proc(lines: seq[string]): BlockNode =
             BlockQuote() # any non-paragraph block
@@ -99,7 +100,7 @@ suite "blockquote: lazy lines and setext underlines":
   test "a lazy === stays paragraph text":
     let q = parse("> foo\n===")[0].quote
     check q.children.len == 1
-    check q.children[0].raw == "foo\n\\==="
+    check q.children[0].raw == "foo\n==="
     check render("> foo\n===") == @["▎ foo ==="]
 
   test "a quoted === still closes the paragraph":
@@ -133,22 +134,20 @@ suite "blockquote: layout":
 
 suite "blockquote: styles":
   test "bar and content styles":
-    check styleOf("> hi", "▎") == Style(fg: Color(kind: ckIndexed, index: 99))
-    check styleOf("> hi", "hi") ==
-      Style(italic: true, fg: Color(kind: ckIndexed, index: 250))
+    check styleOf("> hi", "▎") == Style(fg: indexed(99))
+    check styleOf("> hi", "hi") == Style(italic: true, fg: indexed(250))
 
   test "the quote style goes under the children's own styles":
     var ctx = newLayoutCtx(40, newDocCtx())
-    ctx.theme["blockquote"] = Style(italic: true, fg: Color(kind: ckIndexed, index: 1))
-    ctx.theme["paragraph"] = Style(bold: true, fg: Color(kind: ckIndexed, index: 2))
+    ctx.theme["blockquote"] = Style(italic: true, fg: indexed(1))
+    ctx.theme["paragraph"] = Style(bold: true, fg: indexed(2))
     let rows = ctx.layoutBlocks(parse("> hi"))
     check rows[0][1].text == "hi"
     # attributes add up, the child's color wins
-    check rows[0][1].style ==
-      Style(bold: true, italic: true, fg: Color(kind: ckIndexed, index: 2))
+    check rows[0][1].style == Style(bold: true, italic: true, fg: indexed(2))
 
   test "a theme can restyle the bar":
-    let red = Style(fg: Color(kind: ckIndexed, index: 1))
+    let red = Style(fg: indexed(1))
     var ctx = newLayoutCtx(40, newDocCtx())
     ctx.theme["blockquote.bar"] = red
     check ctx.layoutBlocks(parse("> hi"))[0][0].style == red

@@ -10,7 +10,7 @@ suite "toCelina":
       )
 
   test "maps a 256-color index":
-    let c = render.Color(kind: ckIndexed, index: 208)
+    let c = render.indexed(208)
     check c.toCelina == ColorValue(kind: Indexed256, indexed256: 208)
     check render.Style(bg: c).toCelina.bg ==
       ColorValue(kind: Indexed256, indexed256: 208)

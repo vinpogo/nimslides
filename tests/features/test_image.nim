@@ -31,8 +31,8 @@ proc show(md: string, width = 60): string =
   ## The rendered text with no-break spaces shown as plain spaces.
   render(md, width).join("\n").replace(nbsp, " ")
 
-let imageStyle = Style(italic: true, fg: Color(kind: ckIndexed, index: 176))
-let urlStyle = Style(fg: Color(kind: ckIndexed, index: 243))
+let imageStyle = Style(italic: true, fg: indexed(176))
+let urlStyle = Style(fg: indexed(243))
 let withImage = snapshot()
 
 suite "image: CommonMark examples":

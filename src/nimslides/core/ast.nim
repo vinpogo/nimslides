@@ -49,6 +49,19 @@ method layout*(node: BlockNode, ctx: LayoutCtx): seq[Line] {.base.} =
   ## overrides this.
   raiseAssert "a BlockNode subtype does not override `layout`"
 
+method endsInParagraph*(node: BlockNode): bool {.base.} =
+  ## Whether `node` ends in a paragraph that is still open, so a lazy
+  ## continuation line can extend it. Containers override this to ask their
+  ## last child.
+  false
+
+method endsInParagraph*(node: Paragraph): bool =
+  true
+
+proc endsInParagraph*(blocks: seq[BlockNode]): bool =
+  ## Whether the last of `blocks` ends in an open paragraph.
+  blocks.len > 0 and blocks[^1].endsInParagraph
+
 method spans*(node: InlineNode, ctx: LayoutCtx, base: Style): seq[Span] {.base.} =
   ## The styled text of `node` on top of `base`, which carries the style of
   ## the enclosing nodes. Spans may contain "\n" to force a line break.

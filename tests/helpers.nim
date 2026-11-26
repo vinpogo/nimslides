@@ -4,7 +4,7 @@
 ## (`import nimslides/features/<name>`), so it runs with exactly that
 ## feature registered, whatever other features exist.
 
-import std/[os, sequtils, strutils]
+import std/[os, sequtils, strutils, tables]
 import nimslides/core
 export core
 
@@ -12,6 +12,13 @@ proc styled*(md: string, width = 40): seq[Line] =
   ## The laid-out lines of `md` at `width` columns, with styles. There is no
   ## slide margin: column 0 is the first column of content.
   renderDocument(md, width)
+
+proc runs*(md: string, theme = initTable[string, Style]()): seq[(string, Style)] =
+  ## The spans of `md` at 80 columns as (text, style), with `theme`, e.g.
+  ## `check runs("*a*") == @[("a", Style(italic: true))]`.
+  for line in renderDocument(md, 80, theme):
+    for span in line:
+      result.add (span.text, span.style)
 
 proc render*(md: string, width = 40): seq[string] =
   ## The plain text lines of `md` at `width` columns, without the margin.

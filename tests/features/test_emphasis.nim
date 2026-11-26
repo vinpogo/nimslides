@@ -25,13 +25,6 @@ const
   strong = Style(bold: true)
   both = Style(bold: true, italic: true)
 
-proc runs(md: string, theme = initTable[string, Style]()): seq[(string, Style)] =
-  ## The spans of a one-line document as (text, style), neighbours with the
-  ## same style joined.
-  for line in renderDocument(md, 80, theme):
-    for span in line:
-      result.add (span.text, span.style)
-
 suite "emphasis: structure":
   test "single forms":
     check inl("*a*") == "em(a)" # 350
@@ -107,7 +100,7 @@ suite "emphasis: rendering":
     ]
 
   test "styles merge with the surrounding base style":
-    let red = Style(fg: Color(kind: ckIndexed, index: 1))
+    let red = Style(fg: indexed(1))
     let theme = {"paragraph": red}.toTable
     check runs("a *b* **c**", theme) ==
       @[
@@ -118,7 +111,7 @@ suite "emphasis: rendering":
       ]
 
   test "theme overrides the style keys":
-    let blue = Style(fg: Color(kind: ckIndexed, index: 4))
+    let blue = Style(fg: indexed(4))
     let theme = {"emphasis": blue, "strong": Style(underline: true)}.toTable
     check runs("*a* **b** ***c***", theme) ==
       @[
