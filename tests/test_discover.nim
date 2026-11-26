@@ -9,5 +9,5 @@ importAll("fixtures/missing") # a missing folder imports nothing
 
 suite "importAll":
   test "imports each module in the folder, which registers itself":
-    check rules.inlineRules.len == 1
+    check registered.inlineRules.len == 1
     check render("a @ b") == @["a <probe> b"]

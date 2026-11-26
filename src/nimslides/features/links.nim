@@ -33,6 +33,10 @@ method spans(node: Link, ctx: LayoutCtx, base: Style): seq[Span] =
       text: "(" & node.url & ")", style: base.merge(ctx.style("links.url"))
     )
 
+method plainText(node: Link, ctx: LayoutCtx): string =
+  ## Only the link text, without the url.
+  node.children.plainText(ctx)
+
 proc parseText(p: InlineParser, text: string): seq[InlineNode] =
   ## The inlines of a link's text; links found in there come out `nested`.
   inc linkDepth
@@ -98,9 +102,7 @@ registerInline InlineRule(
         "mailto:" & address
       else:
         return nil
-    result = Link(
-      url: url, children: @[InlineNode(Text(text: address))], nested: linkDepth > 0
-    )
+    result = Link(url: url, children: @[newText(address)], nested: linkDepth > 0)
     p.pos = close + 1,
 )
 

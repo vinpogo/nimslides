@@ -64,7 +64,7 @@ suite "block rules":
     registerBlock lineRule("b", "!", priority = 10)
     registerBlock lineRule("a", "!", priority = 10)
     registerBlock lineRule("c", "!!", priority = 5)
-    check rules.blockRules[0].name == "c"
+    check registered.blockRules[0].name == "c"
     check render("!x\n\n!!y") == @["a: x", "", "c: y"]
 
   test "only interrupting rules end a paragraph":

@@ -2,6 +2,10 @@
 
 import ./[ast, inlines, registry, types, width]
 
+proc displayWidth*(line: Line): int =
+  ## Columns `line` takes in the terminal.
+  line.plain.displayWidth
+
 proc newLayoutCtx*(width: int, doc: DocCtx): LayoutCtx =
   LayoutCtx(width: max(1, width), doc: doc)
 

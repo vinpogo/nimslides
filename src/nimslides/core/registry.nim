@@ -94,7 +94,8 @@ type
     delimiters*: seq[DelimiterRule]
     styles*: Table[string, Style]
 
-var rules*: Registry ## read by the parsers; change it only via `register*`
+var registered*: Registry
+  ## all rules, read by the parsers; change it only via `register*`
 
 proc byOrder[T](a, b: T): int =
   result = cmp(a.priority, b.priority)
@@ -109,28 +110,28 @@ proc insert[T](rules: var seq[T], rule: T) =
 
 proc registerBlock*(rule: BlockRule) =
   doAssert rule.parse != nil, rule.name & ": no parse proc"
-  rules.blockRules.insert rule
+  registered.blockRules.insert rule
 
 proc registerParagraphCloser*(hook: ParagraphCloser) =
   doAssert hook.close != nil, hook.name & ": no close proc"
-  rules.closers.insert hook
+  registered.closers.insert hook
 
 proc registerParagraphStart*(hook: ParagraphStart) =
   doAssert hook.consume != nil, hook.name & ": no consume proc"
-  rules.starts.insert hook
+  registered.starts.insert hook
 
 proc registerInline*(rule: InlineRule) =
   doAssert rule.parse != nil, rule.name & ": no parse proc"
   doAssert rule.triggers != {}, rule.name & ": no trigger characters"
-  rules.inlineRules.insert rule
+  registered.inlineRules.insert rule
 
 proc registerDelimiter*(rule: DelimiterRule) =
   doAssert rule.build != nil, rule.name & ": no build proc"
-  for r in rules.delimiters:
+  for r in registered.delimiters:
     doAssert r.name != rule.name, "rule registered twice: " & rule.name
     doAssert r.ch != rule.ch, "delimiter '" & rule.ch & "' registered twice"
-  rules.delimiters.add rule
-  rules.delimiters.sort(
+  registered.delimiters.add rule
+  registered.delimiters.sort(
     proc(a, b: DelimiterRule): int =
       cmp(a.name, b.name)
   )
@@ -138,8 +139,8 @@ proc registerDelimiter*(rule: DelimiterRule) =
 proc defaultStyle*(key: string, style: Style) =
   ## Registers the default style for `key`, named "<feature>.<element>" or
   ## just "<feature>" (see docs/architecture.md).
-  doAssert key notin rules.styles, "style registered twice: " & key
-  rules.styles[key] = style
+  doAssert key notin registered.styles, "style registered twice: " & key
+  registered.styles[key] = style
 
 proc style*(ctx: LayoutCtx, key: string): Style =
   ## The style for `key`: the theme's, else the registered default, else
@@ -147,11 +148,11 @@ proc style*(ctx: LayoutCtx, key: string): Style =
   if key in ctx.theme:
     ctx.theme[key]
   else:
-    rules.styles.getOrDefault(key)
+    registered.styles.getOrDefault(key)
 
 proc delimiterFor*(ch: char): int =
-  ## Index of the delimiter rule for `ch` in `rules.delimiters`, or -1.
-  for i, r in rules.delimiters:
+  ## Index of the delimiter rule for `ch` in `registered.delimiters`, or -1.
+  for i, r in registered.delimiters:
     if r.ch == ch:
       return i
   -1
@@ -159,7 +160,7 @@ proc delimiterFor*(ch: char): int =
 proc snapshot*(): Registry =
   ## The current rules, for tests that register rules of their own and
   ## `restore` afterwards.
-  rules
+  registered
 
 proc restore*(saved: Registry) =
-  rules = saved
+  registered = saved

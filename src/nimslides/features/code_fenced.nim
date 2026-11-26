@@ -11,17 +11,6 @@ type FencedCode* = ref object of BlockNode
   lang*: string ## its first word, "" if none; kept for syntax highlighting
   lines*: seq[string] ## the content lines, fence indentation removed
 
-proc unescape(s: string): string =
-  ## `s` with backslash escapes of ASCII punctuation processed.
-  var i = 0
-  while i < s.len:
-    if s[i] == '\\' and i + 1 < s.len and s[i + 1] in asciiPunctuation:
-      result.add s[i + 1]
-      i += 2
-    else:
-      result.add s[i]
-      inc i
-
 proc fenceAt(line: string): tuple[indent: int, ch: char, len: int] =
   ## The fence that `line` starts with, or `len == 0` if none.
   let indent = indentOf(line)
@@ -52,10 +41,10 @@ proc parseFence(p: BlockParser): BlockNode =
     return nil
   let words = info.splitWhitespace
   let node = FencedCode(
-    info: info.unescape,
+    info: info.resolveEscapes,
     lang:
       if words.len > 0:
-        words[0].unescape
+        words[0].resolveEscapes
       else:
         "",
   )
@@ -65,24 +54,6 @@ proc parseFence(p: BlockParser): BlockNode =
     p.advance
   p.advance # past the closing fence; unclosed fences run to the end
   node
-
-proc hardWrap(line: string, width: int): seq[tuple[text: string, width: int]] =
-  ## `line` cut into rows of at most `width` columns between grapheme
-  ## clusters, whitespace kept. A cluster wider than `width` gets a row alone.
-  result.add ("", 0)
-  for (text, w) in line.clusters:
-    if result[^1].width > 0 and result[^1].width + w > width:
-      result.add ("", 0)
-    result[^1].text.add text
-    result[^1].width += w
-
-proc fit(s: string, width: int): tuple[text: string, width: int] =
-  ## The leading clusters of `s` that fit in `width` columns.
-  for (text, w) in s.clusters:
-    if result.width + w > width:
-      break
-    result.text.add text
-    result.width += w
 
 method layout(node: FencedCode, ctx: LayoutCtx): seq[Line] =
   let shade = ctx.style("code_fenced")

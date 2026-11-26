@@ -91,6 +91,27 @@ iterator clusters*(s: string): tuple[text: string, width: int] =
     yield (text, w)
     i = next
 
+proc fit*(s: string, width: int): tuple[text: string, width: int] =
+  ## The leading grapheme clusters of `s` that fit in `width` columns, and
+  ## their width.
+  for (text, w) in s.clusters:
+    if result.width + w > width:
+      break
+    result.text.add text
+    result.width += w
+
+proc hardWrap*(s: string, width: int): seq[tuple[text: string, width: int]] =
+  ## `s` cut into rows of at most `width` columns between grapheme clusters,
+  ## whitespace kept (for literal text such as code; prose uses `wrap`). A
+  ## cluster wider than `width` gets a row of its own. Always at least one
+  ## row; "" gives one empty row.
+  result.add ("", 0)
+  for (text, w) in s.clusters:
+    if result[^1].width > 0 and result[^1].width + w > width:
+      result.add ("", 0)
+    result[^1].text.add text
+    result[^1].width += w
+
 proc displayWidth*(s: string): int =
   ## Columns `s` takes in the terminal.
   for ch in s:

@@ -30,6 +30,10 @@ type
   Text* = ref object of InlineNode ## literal text
     text*: string
 
+proc newText*(text: string): InlineNode =
+  ## A `Text` node typed as `InlineNode`, e.g. for `@[newText("a")]`.
+  Text(text: text)
+
 proc newDocCtx*(): DocCtx =
   DocCtx()
 
@@ -58,3 +62,16 @@ proc spans*(nodes: seq[InlineNode], ctx: LayoutCtx, base: Style): seq[Span] =
   ## The spans of `nodes` in order; for nodes that wrap children.
   for node in nodes:
     result.add node.spans(ctx, base)
+
+method plainText*(node: InlineNode, ctx: LayoutCtx): string {.base.} =
+  ## `node` as plain text, e.g. for an image's alt text. By default the text
+  ## of its spans, line breaks as spaces. Override it when the spans show
+  ## more than the content (a link's url).
+  for span in node.spans(ctx, Style()):
+    for ch in span.text:
+      result.add(if ch == '\n': ' ' else: ch)
+
+proc plainText*(nodes: seq[InlineNode], ctx: LayoutCtx): string =
+  ## The plain text of `nodes` in order.
+  for node in nodes:
+    result.add node.plainText(ctx)

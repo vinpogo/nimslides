@@ -153,8 +153,16 @@ ctx.inlines(raw, base): seq[Span]
 wrap(spans, width): seq[Line]
 ctx.renderBlocks(children, width, gap = 1): seq[Line]   # containers
 nodes.spans(ctx, base)                                   # children of an inline node
+node.plainText(ctx); nodes.plainText(ctx)  # text without styles, e.g. image alt text
 doc.state("<feature>", MyState)   # per-feature document state, MyState = ref object of RootObj
 Text(text: "...")                 # core's literal text node
+newText("...")                    # the same, typed InlineNode: @[newText("a")]
+
+# width (core/width.nim, core/layout.nim): always measure in columns, never bytes
+displayWidth(s); line.displayWidth  # terminal columns of a string or a Line
+for (text, width) in s.clusters     # grapheme clusters; never split one
+fit(s, width): (text, width)        # the leading clusters that fit
+hardWrap(s, width): seq[(text, width)]  # literal text cut into rows, spaces kept (code, tables)
 
 # links and images (core/links.nim); these never move p.pos, they return `stop`
 type LinkText = object            # found, text (raw, between the brackets), start, stop (after `]`)
@@ -196,6 +204,18 @@ Contract details:
   an inline rule on `\` matched first (hard line break `\` + newline).
   Soft line breaks become one space; trailing spaces before them are
   dropped, so a hard-break rule must trigger on `' '` and match `"  \n"`.
+- **Runs of a trigger character**: core only skips one character after a
+  rule returns nil, then tries again at the next one. A rule that scans a
+  run (backticks, spaces) and doesn't match must return the whole run as
+  `newText(run)` and advance past it, or core retries mid-run (```` ```foo`` ````
+  would then become a code span). Exception: don't return text right before
+  a `"\n"`, since core's soft break can only drop spaces it still sees
+  (see `hard_break.nim`).
+- **`plainText`** defaults to the node's spans with line breaks as spaces.
+  Override it when `spans` shows more than the content, as links do for
+  their url.
+- **Tabs** are expanded to spaces (stops of 4) before block parsing, so code
+  never contains literal tabs.
 - Code spans, autolinks and HTML take their text before delimiters see it:
   inline rules run at their trigger before core's delimiter scanning.
 
@@ -288,10 +308,17 @@ autolinks / raw HTML inside link text don't take precedence over `]`.
 ## Style keys
 
 `defaultStyle("<feature>", style)` or `defaultStyle("<feature>.<element>",
-style)`, where `<feature>` is the file name: `heading.1` … `heading.6`,
-`emphasis`, `strong`, `strikethrough`, `code_span`, `code_fenced`,
-`blockquote.bar`, `list.bullet`, `links.text`, `links.url`, `table.border`,
-`thematic_break`. Core owns `paragraph`. Look styles up with
+style)`. `<feature>` is exactly the file name, which is also the rule name
+(plus `.<suffix>` for a feature's further rules, e.g. `links.autolink`).
+That is what keeps parallel features from ever claiming the same key, so
+don't shorten or regroup it: `code_fenced`, not `code.block`. Emphasis is the
+one exception, with `emphasis` and `strong`.
+
+Registered so far: `heading.1` … `heading.6`, `emphasis`, `strong`,
+`strikethrough`, `code_span`, `code_fenced`, `code_fenced.lang`,
+`code_indented`, `links.text`, `links.url`, `image`, `image.url`,
+`thematic_break`. Planned: `blockquote.bar`, `list.bullet`, `table.border`.
+Core owns `paragraph`. Look styles up with
 `ctx.style(key)`: a theme override, else the default, else plain.
 Registering a key twice fails at startup.
 
@@ -323,7 +350,13 @@ own feature (import others explicitly to test interplay):
 - `styleOf(md, text): Style` — style of the first span containing `text`
 - `parse(md): seq[BlockNode]`, `parseInline(raw): seq[InlineNode]` — nodes to
   inspect with `of` and conversions
+- `widths(md, width = 40): seq[int]` — display width of each row, for
+  `check widths(md, w).allIt(it <= w)` (import `std/sequtils`)
 - `example(name)` — contents of `examples/features/<name>.md`
+
+Importing another feature into a feature test registers it for every test
+in that file. Tests of features working together go in
+`tests/test_together.nim` instead, which imports all features.
 
 `examples/features/<name>.md` shows every case of the feature; `examples/showcase.md`
 uses all features together. Check by eye with

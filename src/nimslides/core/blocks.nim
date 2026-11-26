@@ -58,7 +58,7 @@ proc takeWhile*(p: BlockParser, pred: proc(line: string): bool): seq[string] =
     p.advance
 
 proc tryRules(p: BlockParser, interruptingOnly: bool): BlockNode =
-  for rule in rules.blockRules:
+  for rule in registered.blockRules:
     if interruptingOnly and not rule.interruptsParagraph:
       continue
     let start = p.pos
@@ -85,7 +85,7 @@ proc parseParagraph(p: BlockParser): BlockNode =
   var closedAt = -1
   while not p.eof and not p.line.isBlank:
     let at = p.pos
-    for closer in rules.closers:
+    for closer in registered.closers:
       build = closer.close(p)
       if build != nil:
         closedAt = at
@@ -99,7 +99,7 @@ proc parseParagraph(p: BlockParser): BlockNode =
   var taken = true
   while taken and lines.len > 0:
     taken = false
-    for hook in rules.starts:
+    for hook in registered.starts:
       let n = hook.consume(lines, p.doc)
       if n > 0:
         lines = lines[min(n, lines.len) .. ^1]

@@ -165,5 +165,5 @@ suite "inline rule order":
     registerInline rule("b", 10, true)
     registerInline rule("a", 10, true)
     registerInline rule("first", 5, false)
-    check rules.inlineRules[0].name == "first"
+    check registered.inlineRules[0].name == "first"
     check inl("x@y") == "xay"

@@ -15,7 +15,7 @@ const asciiPunctuation* = {'!' .. '/', ':' .. '@', '[' .. '`', '{' .. '~'}
 
 type Delim = object
   idx: int ## index of the run's `Text` node in the item list
-  rule: int ## index into `rules.delimiters`
+  rule: int ## index into `registered.delimiters`
   count, orig: int ## delimiters left in the run, and its original length
   canOpen, canClose: bool
 
@@ -60,7 +60,7 @@ proc processEmphasis(items: var seq[InlineNode], delims: var seq[Delim]) =
     if not closer.canClose:
       inc ci
       continue
-    let rule = rules.delimiters[closer.rule]
+    let rule = registered.delimiters[closer.rule]
     var found = -1
     for oi in countdown(ci - 1, 0):
       let o = delims[oi]
@@ -117,9 +117,9 @@ proc parseInlines*(src: string, doc: DocCtx): seq[InlineNode] =
   ## The inline nodes of `src`, e.g. a paragraph's raw text.
   let p = InlineParser(src: src, doc: doc)
   var stops = {'\\', '\n'}
-  for rule in rules.inlineRules:
+  for rule in registered.inlineRules:
     stops.incl rule.triggers
-  for rule in rules.delimiters:
+  for rule in registered.delimiters:
     stops.incl rule.ch
 
   var items: seq[InlineNode]
@@ -138,7 +138,7 @@ proc parseInlines*(src: string, doc: DocCtx): seq[InlineNode] =
       continue
 
     var matched = false
-    for rule in rules.inlineRules:
+    for rule in registered.inlineRules:
       if c in rule.triggers:
         let start = p.pos
         let node = rule.parse(p)
@@ -167,7 +167,7 @@ proc parseInlines*(src: string, doc: DocCtx): seq[InlineNode] =
       while p.peek in {' ', '\t'}:
         inc p.pos
     elif (let d = delimiterFor(c); d >= 0):
-      let rule = rules.delimiters[d]
+      let rule = registered.delimiters[d]
       let start = p.pos
       while p.peek == c:
         inc p.pos

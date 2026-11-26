@@ -5,7 +5,6 @@
 ## flattened to plain text, as CommonMark does for HTML's `alt` attribute.
 ## The parsing of the brackets and the tail is core's (`core/links.nim`).
 
-import std/strutils
 import ../core
 
 type Image* = ref object of InlineNode
@@ -17,18 +16,12 @@ const
   marker = "▨"
   glue = " " ## no-break space: keeps the marker on the alt's first line
 
-proc altText(nodes: seq[InlineNode], ctx: LayoutCtx): string =
-  ## The alt text as plain text. A nested image contributes only its own alt
-  ## text (`![a ![b](x)](y)` has alt "a b"); other nodes their rendered text.
-  for node in nodes:
-    if node of Image:
-      result.add Image(node).alt.altText(ctx)
-    else:
-      for span in node.spans(ctx, Style()):
-        result.add span.text.replace('\n', ' ')
+method plainText(node: Image, ctx: LayoutCtx): string =
+  ## Only the alt text, so `![a ![b](x)](y)` has alt "a b".
+  node.alt.plainText(ctx)
 
 method spans(node: Image, ctx: LayoutCtx, base: Style): seq[Span] =
-  let alt = node.alt.altText(ctx)
+  let alt = node.alt.plainText(ctx)
   let look = base.merge(ctx.style("image"))
   result.add Span(text: (if alt.len > 0: marker & glue & alt else: marker), style: look)
   if node.url.len > 0:
