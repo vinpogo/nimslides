@@ -18,6 +18,8 @@ flowchart LR
   rs --> pipe[nimslides.nim<br>prints plain text when piped]
 ```
 
+0. **Frontmatter.** `core/frontmatter.nim` cuts a leading `---` … `---`
+   block off the source; its `title` and `author` go in the viewer's footer.
 1. **Blocks.** The source is split into lines (tabs expanded to 4-column
    stops). At each non-blank line, block rules are tried in priority order;
    if none matches, core's **paragraph** takes the line plus following lines.
@@ -44,6 +46,7 @@ flowchart LR
 | `core/layout.nim` | `wrap`, `ctx.inlines`, `layoutBlocks`, `ctx.renderBlocks`, `ctx.literalRows`, `line.fit`, paragraph layout |
 | `core/links.nim` | link text, inline destination/title and reference parsing shared by links and images; registers the reference definition hook |
 | `core/slides.nim` | the `slide_break` rule (`---` between blank lines, top level only), `splitSlides` |
+| `core/frontmatter.nim` | `splitFrontmatter`: a leading `---` block of `key: value` lines (only `title`, `author` are read); the line after the opening `---` must not be blank, so `---` + blank line stays a slide separator |
 | `core/html.nim` | HTML tag grammar (tag names, attributes, open and closing tags) shared by `html` and `html_inline` |
 | `core/discover.nim` | `importAll(dir)`: compile-time import of every `.nim` file in a folder |
 | `core.nim` | re-exports core; `renderDocument(src, width)`, `renderSlides(src, width)`. **Features import only this.** |
@@ -351,7 +354,8 @@ one exception, with `emphasis` and `strong`.
 The full list, with defaults, is `themes/default.ini` (a test keeps it in
 sync with the registry; regenerate it with `nimslides --print-theme >
 themes/default.ini` after adding or changing a `defaultStyle`). Core owns
-`paragraph`; `render.nim` owns `slide`, `footer` and `footer.counter`. Look styles up
+`paragraph`; `render.nim` owns `slide`, `footer`, `footer.counter`, `footer.author` and
+`footer.title`. Look styles up
 with `ctx.style(key)`: a theme override, else the default, else plain.
 Never hardcode a color or attribute in a feature: anything without a key
 can't be themed.

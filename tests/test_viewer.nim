@@ -118,10 +118,20 @@ suite "paint":
       check buf[x, y].symbol == " "
       check buf[x, y].style == bg.toCelina
 
+  proc footerRow(buf: Buffer): string =
+    for x in 0 ..< buf.area.width:
+      result.add buf[x, buf.area.height - 1].symbol
+
+  proc paintFooter(buf: var Buffer, footer: Footer) =
+    let s = render.Style()
+    buf.paintFooter(footer, s, s, s, s)
+
   test "the footer fills the bottom row; the counter sits on it":
     let row = render.Style(bg: render.indexed(4))
     var buf = newBuffer(6, 2)
-    buf.paintFooter("1/3", row, row.merge(render.Style(dim: true)))
+    buf.paintFooter(
+      Footer(counter: "1/3"), row, row, row, row.merge(render.Style(dim: true))
+    )
     check buf[0, 1].symbol == " "
     check buf[0, 1].style == row.toCelina
     check buf[5, 1].style == row.toCelina
@@ -130,7 +140,42 @@ suite "paint":
     check Dim in buf[2, 1].style.modifiers
     check buf[0, 0].style == render.Style().toCelina # only the bottom row
 
-  test "a single slide has no footer":
+  test "an empty footer paints nothing":
     var buf = newBuffer(6, 2)
-    buf.paintFooter("", render.Style(bg: render.indexed(4)), render.Style())
+    let row = render.Style(bg: render.indexed(4))
+    buf.paintFooter(Footer(), row, row, row, row)
     check buf[0, 1].style == render.Style().toCelina
+
+  test "the author sits left, the title in the middle":
+    var buf = newBuffer(20, 1)
+    buf.paintFooter(Footer(author: "Vin", title: "Nim", counter: "1/3"))
+    check buf.footerRow == " Vin    Nim     1/3 "
+
+  test "each text gets its own style":
+    let (a, t, c) = (render.indexed(1), render.indexed(2), render.indexed(3))
+    var buf = newBuffer(20, 1)
+    buf.paintFooter(
+      Footer(author: "Vin", title: "Nim", counter: "1/3"),
+      render.Style(),
+      render.Style(fg: a),
+      render.Style(fg: t),
+      render.Style(fg: c),
+    )
+    check buf[1, 0].style.fg == a.toCelina
+    check buf[8, 0].style.fg == t.toCelina
+    check buf[16, 0].style.fg == c.toCelina
+
+  test "the title is left out when it doesn't fit centered":
+    var buf = newBuffer(14, 1)
+    buf.paintFooter(Footer(author: "Vincent", title: "Nim", counter: "1/3"))
+    check buf.footerRow == " Vincent  1/3 "
+
+  test "the author is cropped before the counter":
+    var buf = newBuffer(10, 1)
+    buf.paintFooter(Footer(author: "Vincent", counter: "1/3"))
+    check buf.footerRow == " Vinc 1/3 "
+
+  test "a title alone is centered":
+    var buf = newBuffer(9, 1)
+    buf.paintFooter(Footer(title: "Nim"))
+    check buf.footerRow == "   Nim   "

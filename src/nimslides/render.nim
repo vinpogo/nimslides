@@ -8,7 +8,7 @@
 import std/[strutils, tables]
 import ./[core, features]
 import ./core/types
-export types, tables
+export types, tables, Frontmatter, splitFrontmatter
 
 const margin* = 2 ## columns of space left of the slide
 
@@ -17,6 +17,10 @@ type Theme* = Table[string, Style] ## style overrides by key; see `theme.nim`
 defaultStyle("slide", Style()) # the base style and background of every slide
 defaultStyle("footer", Style()) # the bottom row of a deck, over `slide`
 defaultStyle("footer.counter", Style(dim: true)) # the "3/7" on it, over `footer`
+defaultStyle("footer.author", Style(dim: true))
+  # frontmatter `author`, left, over `footer`
+defaultStyle("footer.title", Style(dim: true))
+  # frontmatter `title`, centered, over `footer`
 
 proc themed*(theme: Theme, key: string): Style =
   ## The style for `key`: the theme's, else the registered default.

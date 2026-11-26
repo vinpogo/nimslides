@@ -117,16 +117,56 @@ proc paint*(buf: var Buffer, slide: Slide, top, rows: int) =
       buf.setString(x, y, span.text, span.style.toCelina)
       x += span.text.displayWidth
 
-proc paintFooter*(buf: var Buffer, counter: string, row, counterStyle: render.Style) =
-  ## Fills the bottom row of `buf` in `row` and writes `counter` in
-  ## `counterStyle` at its right end. Nothing for an empty `counter` (a
-  ## single slide has no footer).
-  if counter.len == 0 or buf.area.height == 0:
+type Footer* = object ## the texts on the bottom row
+  author*: string ## left
+  title*: string ## centered
+  counter*: string ## right, e.g. "3/7"
+
+proc isEmpty*(footer: Footer): bool =
+  footer.author.len == 0 and footer.title.len == 0 and footer.counter.len == 0
+
+proc paintFooter*(
+    buf: var Buffer,
+    footer: Footer,
+    row, authorStyle, titleStyle, counterStyle: render.Style,
+) =
+  ## Fills the bottom row of `buf` in `row` and writes the author at its
+  ## left, the title centered and the counter at its right, one column in
+  ## from the edges. When they don't fit, the counter wins, then the author
+  ## (cropped), and the title is left out unless it fits centered with a
+  ## space on both sides. Nothing for an empty `footer`.
+  if footer.isEmpty or buf.area.height == 0:
     return
-  let y = buf.area.height - 1
-  buf.fill(rect(0, y, buf.area.width, 1), cell(" ", row.toCelina))
-  let x = max(0, buf.area.width - counter.displayWidth - 1)
-  buf.setString(x, y, counter, counterStyle.toCelina)
+  let
+    y = buf.area.height - 1
+    width = buf.area.width
+  buf.fill(rect(0, y, width, 1), cell(" ", row.toCelina))
+  # `free` is the first column of the counter, or the row's end without one
+  var free = width
+  if footer.counter.len > 0:
+    free = max(0, width - footer.counter.displayWidth - 1)
+    buf.setString(free, y, footer.counter, counterStyle.toCelina)
+  var authorEnd = 0 # first column after the author
+  if footer.author.len > 0:
+    let author = footer.author.truncateToWidth(free - 2) # a space before the counter
+    buf.setString(1, y, author, authorStyle.toCelina)
+    if author.len > 0:
+      authorEnd = 1 + author.displayWidth
+  if footer.title.len > 0:
+    let w = footer.title.displayWidth
+    let x = (width - w) div 2
+    let left =
+      if authorEnd > 0:
+        authorEnd + 1
+      else:
+        0
+    let right =
+      if free < width:
+        free - 1
+      else:
+        width
+    if x >= left and x + w <= right:
+      buf.setString(x, y, footer.title, titleStyle.toCelina)
 
 var hookTerm: Terminal ## the terminal the SIGINT hook restores
 
@@ -134,9 +174,9 @@ proc present*(src: string, theme = Theme()) =
   ## Shows the slides of `src` full screen until the user presses q, Escape
   ## or ctrl-c. Right/left, l/h, n/p, space/backspace change slides. Slides
   ## taller than the window scroll with the arrow keys and j/k (one line),
-  ## PageUp/PageDown (one page), and the mouse wheel or touchpad. With more
-  ## than one slide, the bottom row shows the slide number. `theme`
-  ## overrides default styles.
+  ## PageUp/PageDown (one page), and the mouse wheel or touchpad. The bottom
+  ## row shows the frontmatter's author and title and, with more than one
+  ## slide, the slide number. `theme` overrides default styles.
   let term = newTerminal()
   # Alternate screen and raw mode. Raw mode turns off ISIG, so ctrl-c arrives
   # as a `Quit` event rather than SIGINT, and the `finally` below restores
@@ -153,6 +193,7 @@ proc present*(src: string, theme = Theme()) =
         hookTerm.emergencyRestore()
       quit 1 # Nim turns codes above 127 into 127
   )
+  let meta = src.splitFrontmatter.meta
   try:
     hideCursor()
     var
@@ -161,9 +202,14 @@ proc present*(src: string, theme = Theme()) =
       current = 0 # index of the slide on screen
       top = 0 # index of the slide line on the top row
       dirty = true
+    template footer(): Footer =
+      Footer(
+        author: meta.author, title: meta.title, counter: counter(current, slides.len)
+      )
+
     template rows(): int =
       # rows for the slide; the bottom row is the footer if there is one
-      if slides.len > 1:
+      if not footer.isEmpty:
         max(1, shown.height - 1)
       else:
         shown.height
@@ -182,11 +228,13 @@ proc present*(src: string, theme = Theme()) =
       if dirty:
         var buf = newBuffer(shown.width, shown.height)
         buf.paint(slides[current], top, rows)
-        let footer = slides[current].style.merge(theme.themed("footer"))
+        let row = slides[current].style.merge(theme.themed("footer"))
         buf.paintFooter(
-          counter(current, slides.len),
           footer,
-          footer.merge(theme.themed("footer.counter")),
+          row,
+          row.merge(theme.themed("footer.author")),
+          row.merge(theme.themed("footer.title")),
+          row.merge(theme.themed("footer.counter")),
         )
         term.draw(buf) # sends only the cells that changed
         dirty = false

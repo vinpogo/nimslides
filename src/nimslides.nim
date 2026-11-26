@@ -10,6 +10,8 @@ Usage: nimslides [options] FILE
 
 Show the slides in FILE full screen in the terminal. Slides are
 separated by a line of `---` with a blank line above and below.
+A frontmatter at the top (`title:` and `author:` between two `---`
+lines) puts the title and author in the footer.
 
   right, l, n, space      next slide
   left, h, p, backspace   previous slide

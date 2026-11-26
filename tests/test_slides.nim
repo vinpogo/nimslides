@@ -18,6 +18,10 @@ suite "slide separators":
     check slides("---\n\none\n\n---\n").len == 1
     check slides("---\n\none\n\n---\n\ntwo\n\n---").len == 2
 
+  test "a frontmatter is not shown":
+    check slides("---\ntitle: Nim\n---\n\none\n\n---\n\ntwo") ==
+      @[@["  one"], @["  two"]]
+
   test "two separators in a row make a blank slide":
     check slides("one\n\n---\n\n---\n\ntwo") == @[@["  one"], @[], @["  two"]]
 

@@ -1,3 +1,8 @@
+---
+author: vingy
+title: Example slides
+---
+
 # nimslides
 
 Markdown slides in the terminal.
