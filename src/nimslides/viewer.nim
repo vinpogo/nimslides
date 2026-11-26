@@ -103,9 +103,11 @@ proc scrolled*(top, delta, lines, height: int): int =
   ## point where the last line sits on the bottom row.
   clamp(top + delta, 0, maxTop(lines, height))
 
-proc paint(buf: var Buffer, slide: Slide, top, rows: int) =
-  ## Writes `slide` into the first `rows` rows of `buf`, starting at line
-  ## `top`; celina crops what doesn't fit.
+proc paint*(buf: var Buffer, slide: Slide, top, rows: int) =
+  ## Fills `buf` with the slide's background, then writes `slide` into the
+  ## first `rows` rows, starting at line `top`; celina crops what doesn't
+  ## fit.
+  buf.clear(cell(" ", slide.style.toCelina))
   for y in 0 ..< min(rows, buf.area.height):
     if top + y >= slide.lines.len:
       break
@@ -115,21 +117,26 @@ proc paint(buf: var Buffer, slide: Slide, top, rows: int) =
       buf.setString(x, y, span.text, span.style.toCelina)
       x += span.text.displayWidth
 
-proc paintCounter(buf: var Buffer, text: string) =
-  ## Writes `text` dimmed into the bottom right corner of `buf`.
-  if text.len == 0 or buf.area.height == 0:
+proc paintFooter*(buf: var Buffer, counter: string, row, counterStyle: render.Style) =
+  ## Fills the bottom row of `buf` in `row` and writes `counter` in
+  ## `counterStyle` at its right end. Nothing for an empty `counter` (a
+  ## single slide has no footer).
+  if counter.len == 0 or buf.area.height == 0:
     return
-  let x = max(0, buf.area.width - text.displayWidth - 1)
-  buf.setString(x, buf.area.height - 1, text, colors.Style(modifiers: {Dim}))
+  let y = buf.area.height - 1
+  buf.fill(rect(0, y, buf.area.width, 1), cell(" ", row.toCelina))
+  let x = max(0, buf.area.width - counter.displayWidth - 1)
+  buf.setString(x, y, counter, counterStyle.toCelina)
 
 var hookTerm: Terminal ## the terminal the SIGINT hook restores
 
-proc present*(src: string) =
+proc present*(src: string, theme = Theme()) =
   ## Shows the slides of `src` full screen until the user presses q, Escape
   ## or ctrl-c. Right/left, l/h, n/p, space/backspace change slides. Slides
   ## taller than the window scroll with the arrow keys and j/k (one line),
   ## PageUp/PageDown (one page), and the mouse wheel or touchpad. With more
-  ## than one slide, the bottom row shows the slide number.
+  ## than one slide, the bottom row shows the slide number. `theme`
+  ## overrides default styles.
   let term = newTerminal()
   # Alternate screen and raw mode. Raw mode turns off ISIG, so ctrl-c arrives
   # as a `Quit` event rather than SIGINT, and the `finally` below restores
@@ -155,7 +162,7 @@ proc present*(src: string) =
       top = 0 # index of the slide line on the top row
       dirty = true
     template rows(): int =
-      # rows for the slide; the bottom row holds the counter if there is one
+      # rows for the slide; the bottom row is the footer if there is one
       if slides.len > 1:
         max(1, shown.height - 1)
       else:
@@ -168,14 +175,19 @@ proc present*(src: string) =
         # and keep the offset valid for the new height. celina redraws the
         # whole screen by itself when the buffer size changes.
         if term.size.width != shown.width:
-          slides = renderSlides(src, term.size.width)
+          slides = renderSlides(src, term.size.width, theme)
         shown = term.size
         top = min(top, maxTop(slides[current].lines.len, rows))
         dirty = true
       if dirty:
         var buf = newBuffer(shown.width, shown.height)
         buf.paint(slides[current], top, rows)
-        buf.paintCounter(counter(current, slides.len))
+        let footer = slides[current].style.merge(theme.themed("footer"))
+        buf.paintFooter(
+          counter(current, slides.len),
+          footer,
+          footer.merge(theme.themed("footer.counter")),
+        )
         term.draw(buf) # sends only the cells that changed
         dirty = false
       # celina has no resize signal, so wake up regularly to check the size.

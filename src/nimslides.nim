@@ -1,7 +1,7 @@
 ## nimslides: render a markdown file as slides in the terminal.
 
 import std/[parseopt, strutils, terminal, unicode]
-import nimslides/[render, viewer]
+import nimslides/[render, theme, viewer]
 
 const NimblePkgVersion {.strdefine.} = "dev"
 
@@ -21,12 +21,17 @@ Hold shift to select text with the mouse. When stdout is not a
 terminal, all slides are printed instead.
 
 Options:
+  --theme FILE        restyle with a theme file (INI)
+  --print-theme       print the default theme, a starting point
+                      that lists every style key
   -h, --help          show this help
   -v, --version       show the version"""
 
 proc main() =
-  var path = ""
-  for kind, key, val in getopt():
+  var path, themePath = ""
+  for kind, key, val in getopt(
+    shortNoVal = {'h', 'v'}, longNoVal = @["help", "version", "print-theme"]
+  ):
     case kind
     of cmdArgument:
       if path.len > 0:
@@ -40,6 +45,13 @@ proc main() =
       of "v", "version":
         echo NimblePkgVersion
         quit 0
+      of "theme":
+        if val.len == 0:
+          quit "nimslides: --theme needs a FILE\n\n" & usage, 2
+        themePath = val
+      of "print-theme":
+        stdout.write defaultTheme()
+        quit 0
       else:
         quit "nimslides: unknown option '" & key & "'\n\n" & usage, 2
     of cmdEnd:
@@ -52,14 +64,22 @@ proc main() =
       readFile(path)
     except IOError as e:
       quit "nimslides: cannot read " & path & ": " & e.msg, 1
+  let theme =
+    if themePath.len == 0:
+      Theme()
+    else:
+      try:
+        loadTheme(themePath)
+      except ThemeError as e:
+        quit "nimslides: " & e.msg, 1
 
   if isatty(stdout) and isatty(stdin):
-    present(src)
+    present(src, theme)
   else:
     # Slides one after another, each after a dashed line with its number,
     # e.g. "┄┄ 2/5 ┄┄┄┄┄┄"; `┄` appears nowhere else in a slide.
     let width = terminalWidth()
-    let slides = renderSlides(src, width)
+    let slides = renderSlides(src, width, theme)
     for i, slide in slides:
       if i > 0:
         let label = "┄┄ " & $(i + 1) & "/" & $slides.len & " "

@@ -49,7 +49,8 @@ flowchart LR
 | `core.nim` | re-exports core; `renderDocument(src, width)`, `renderSlides(src, width)`. **Features import only this.** |
 | `features.nim` | `importAll("features")`; nothing to edit when adding a feature |
 | `features/<name>.nim` | one markdown feature each |
-| `render.nim` | `renderSlides` = core's `renderSlides` + `margin`; re-exports `core/types` |
+| `render.nim` | `renderSlides` = core's `renderSlides` + `margin` + the `slide` style; `Theme`, `themed`; re-exports `core/types` |
+| `theme.nim` | theme files: `parseTheme`, `loadTheme`, `parseColor`, `formatTheme`, `defaultTheme` |
 | `viewer.nim` | the only module that imports celina |
 
 Rules: features never import each other, never import celina, and never
@@ -347,13 +348,53 @@ That is what keeps parallel features from ever claiming the same key, so
 don't shorten or regroup it: `code_fenced`, not `code.block`. Emphasis is the
 one exception, with `emphasis` and `strong`.
 
-Registered so far: `heading.1` … `heading.6`, `emphasis`, `strong`,
-`strikethrough`, `code_span`, `code_fenced`, `code_fenced.lang`,
-`code_indented`, `links.text`, `links.url`, `image`, `image.url`,
-`thematic_break`. Planned: `blockquote.bar`, `list.bullet`, `table.border`.
-Core owns `paragraph`. Look styles up with
-`ctx.style(key)`: a theme override, else the default, else plain.
+The full list, with defaults, is `themes/default.ini` (a test keeps it in
+sync with the registry; regenerate it with `nimslides --print-theme >
+themes/default.ini` after adding or changing a `defaultStyle`). Core owns
+`paragraph`; `render.nim` owns `slide`, `footer` and `footer.counter`. Look styles up
+with `ctx.style(key)`: a theme override, else the default, else plain.
+Never hardcode a color or attribute in a feature: anything without a key
+can't be themed.
 Registering a key twice fails at startup.
+
+## Themes
+
+`nimslides --theme FILE` restyles any style key. A theme is an INI file
+(`theme.nim`; no parser library, so error messages have exact line numbers):
+
+```ini
+# comments start with # or ; at the start of a line or after whitespace
+[slide]            # the base style of every slide; its bg fills the screen
+fg = 236
+bg = 255
+
+[heading.1]
+fg = #ff5fd7       # only fg changes, bold stays on from the default
+
+[strong]
+bold = false       # switch an attribute off
+```
+
+- A section is a style key; unknown keys, attributes or values are errors
+  (`file:line: message`), so typos don't pass silently.
+- Attributes: `fg`, `bg`; `bold`, `italic`, `underline`, `dim`,
+  `strikethrough` (`true` / `false`).
+- Colors: `default` (the terminal's), `0`-`255` (palette), `#rrggbb`
+  (quotes optional), `black red green yellow blue magenta cyan white` and
+  `bright_<name>` (palette 0-15).
+- **Patching**: a section changes only the attributes it names.
+  `parseTheme` starts from the registered default, so the result is a full
+  `Table[string, Style]` and `ctx.style` needs no patch logic. Themes are
+  parsed after all features registered, i.e. at runtime in `main`.
+- **`slide`**: `render.renderSlides` merges every span over the `slide`
+  style (`slide.style.merge(span.style)`), margin included, and stores it
+  in `Slide.style`; the viewer clears the screen with it first. A span's
+  own colors win, so code blocks keep their bg.
+- **`footer`**: a deck's bottom row, filled edge to edge (over `slide`),
+  e.g. a status bar color; `footer.counter` is the slide number on it
+  (over `footer`). A single slide has no footer.
+- `nimslides --print-theme` writes every key with every attribute
+  (`themes/default.ini`); `examples/themes/light.ini` is an example theme.
 
 ## Testing a feature
 

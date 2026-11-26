@@ -1,5 +1,5 @@
 import std/unittest
-import pkg/celina/core/[colors, events]
+import pkg/celina/core/[buffer, colors, events]
 import nimslides/[render, viewer]
 
 suite "toCelina":
@@ -105,3 +105,32 @@ suite "slides":
     check counter(0, 1) == ""
     check counter(0, 3) == "1/3"
     check counter(2, 3) == "3/3"
+
+suite "paint":
+  let bg = render.Style(bg: render.indexed(17))
+
+  test "the slide background fills short lines, blank lines and below":
+    let slide = Slide(lines: @[@[Span(text: "ab", style: bg)], @[]], style: bg)
+    var buf = newBuffer(5, 4)
+    buf.paint(slide, 0, 4)
+    check buf[0, 0].symbol == "a"
+    for (x, y) in [(4, 0), (0, 1), (4, 3)]:
+      check buf[x, y].symbol == " "
+      check buf[x, y].style == bg.toCelina
+
+  test "the footer fills the bottom row; the counter sits on it":
+    let row = render.Style(bg: render.indexed(4))
+    var buf = newBuffer(6, 2)
+    buf.paintFooter("1/3", row, row.merge(render.Style(dim: true)))
+    check buf[0, 1].symbol == " "
+    check buf[0, 1].style == row.toCelina
+    check buf[5, 1].style == row.toCelina
+    check buf[2, 1].symbol == "1"
+    check buf[2, 1].style.bg == row.toCelina.bg
+    check Dim in buf[2, 1].style.modifiers
+    check buf[0, 0].style == render.Style().toCelina # only the bottom row
+
+  test "a single slide has no footer":
+    var buf = newBuffer(6, 2)
+    buf.paintFooter("", render.Style(bg: render.indexed(4)), render.Style())
+    check buf[0, 1].style == render.Style().toCelina

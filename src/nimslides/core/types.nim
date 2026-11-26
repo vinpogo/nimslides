@@ -30,6 +30,9 @@ type
 
   Slide* = object
     lines*: seq[Line] # Interactive regions will go here; see docs/architecture.md.
+    style*: Style
+      ## the slide's base style: its bg fills the screen, and every span is
+      ## already merged over it
 
 proc `==`*(a, b: Color): bool =
   if a.kind != b.kind:
