@@ -33,13 +33,17 @@ fg = 252
 fg = #ff5fd7
 ```
 
-## Planned features
+## Syntax highlighting
 
-- Syntax-highlighted code blocks
+Fenced code with a language (```` ```nim ````) is highlighted by
+[bat](https://github.com/sharkdp/bat) if it is on the `PATH`; the token
+colors come from bat's theme (`BAT_THEME=GitHub nimslides talk.md` for a
+light one), the card's background from nimslides' `code_fenced` style.
+Without bat, or for a language bat doesn't know, code stays plain.
 
 ## Development
 
 ```sh
-nix develop          # nim, nimble, nph, nimver
+nix develop          # nim, nimble, nph, nimver, bat
 nimble build
 ```

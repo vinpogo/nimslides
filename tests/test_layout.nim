@@ -127,6 +127,63 @@ suite "helpers for features":
     check "".hardWrap(5) == @[("", 0)]
     check "日x".hardWrap(1) == @[("日", 2), ("x", 1)] # too wide: a row alone
 
+  test "styled hardWrap cuts across spans and keeps their styles":
+    let a = Style(bold: true)
+    let b = Style(fg: indexed(1))
+    check @[Span(text: "abc", style: a), Span(text: "de", style: b)].hardWrap(2) ==
+      @[
+        (@[Span(text: "ab", style: a)], 2),
+        (@[Span(text: "c", style: a), Span(text: "d", style: b)], 2),
+        (@[Span(text: "e", style: b)], 1),
+      ]
+    check Line(@[]).hardWrap(5) == @[(Line(@[]), 0)]
+    check @[Span(text: "日本語", style: a)].hardWrap(3) ==
+      @[
+        (@[Span(text: "日", style: a)], 2),
+        (@[Span(text: "本", style: a)], 2),
+        (@[Span(text: "語", style: a)], 2),
+      ]
+    let flag = "\u{1F1EF}\u{1F1F5}" # one cluster, never split
+    check @[Span(text: "x" & flag)].hardWrap(2).mapIt(it.line.plain) == @["x", flag]
+    # equal neighbours merge
+    check @[Span(text: "a", style: a), Span(text: "b", style: a)].hardWrap(5) ==
+      @[(@[Span(text: "ab", style: a)], 2)]
+
+  test "literalRows pads to the width and draws spans over the card":
+    let card = Style(fg: indexed(252), bg: indexed(235))
+    let kw = Style(bold: true, fg: indexed(81))
+    let ctx = newLayoutCtx(8, newDocCtx())
+    let rows = ctx.literalRows(
+      @[@[Span(text: "if", style: kw), Span(text: " x y")]], card, lead = 2
+    )
+    check rows ==
+      @[
+        @[
+          Span(text: "  ", style: card),
+          Span(text: "if", style: card.merge(kw)),
+          Span(text: " x y", style: card),
+        ]
+      ]
+    check card.merge(kw).bg == card.bg # the card's bg shows through
+    # wrapping keeps styles; every row is exactly the width
+    let wrapped = ctx.literalRows(@[@[Span(text: "abcdefgh", style: kw)]], card, 2)
+    check wrapped.mapIt(it.plain) == @["  abcdef", "  gh    "]
+    check wrapped[1][1] == Span(text: "gh", style: card.merge(kw))
+    # empty lines are a filled row
+    check ctx.literalRows(@[Line(@[])], card) ==
+      @[@[Span(text: ' '.repeat(8), style: card)]]
+
+  test "unstyled literalRows: one span per row":
+    let card = Style(bg: indexed(235))
+    let ctx = newLayoutCtx(6, newDocCtx())
+    check ctx.literalRows(@["ab", "", "abcdefg"], card, lead = 1) ==
+      @[
+        @[Span(text: " ab   ", style: card)],
+        @[Span(text: "      ", style: card)],
+        @[Span(text: " abcde", style: card)],
+        @[Span(text: " fg   ", style: card)],
+      ]
+
   test "a line's display width":
     check @[Span(text: "ab"), Span(text: "日本")].displayWidth == 6
     check Line(@[]).displayWidth == 0

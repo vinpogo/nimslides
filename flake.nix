@@ -54,6 +54,12 @@
             "--opt:speed"
           ];
 
+          # Code highlighting runs bat; a bat already on the PATH wins.
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postFixup = ''
+            wrapProgram $out/bin/nimslides --suffix PATH : ${lib.makeBinPath [ pkgs.bat ]}
+          '';
+
           meta = {
             description = "Render markdown files as slides in the terminal";
             license = lib.licenses.gpl3Plus;
@@ -92,6 +98,7 @@
               pkgs.nim
               pkgs.nimble
               pkgs.nph
+              pkgs.bat
               nim_lk
               nimver.packages.${system}.default
             ];

@@ -1,4 +1,4 @@
-import std/[sequtils, strutils, unittest]
+import std/[os, sequtils, strutils, unittest]
 import ../helpers
 import nimslides/features/code_fenced # only this feature is registered
 
@@ -21,7 +21,14 @@ proc code(md: string): FencedCode =
   check blocks[0] of FencedCode
   FencedCode(blocks[0])
 
+const noHighlighter = "nimslides-no-such-highlighter"
+const fakeBat = currentSourcePath.parentDir.parentDir / "fixtures" / "fake_bat.sh"
+const keyword = Style(bold: true, fg: indexed(81)) # what fake_bat.sh colors with
+
 suite "fenced code":
+  setup:
+    highlighter = noHighlighter # plain cards, whether or not bat is installed
+
   test "backtick and tilde fences":
     check render("```\na\n```", 20) == @[blank(), row("a"), blank()]
     check render("~~~\na\n~~~", 20) == @[blank(), row("a"), blank()]
@@ -142,3 +149,89 @@ suite "fenced code":
 
   test "the example renders":
     check render(example("code_fenced"), 40).len > 0
+
+suite "ANSI colors":
+  test "plain text, one line per newline":
+    check parseAnsi("a\nb") == @[@[Span(text: "a")], @[Span(text: "b")]]
+    check parseAnsi("") == @[Line(@[])]
+    check parseAnsi("a\n") == @[@[Span(text: "a")], Line(@[])]
+
+  test "palette, truecolor and basic colors, fg and bg":
+    check parseAnsi("\e[38;5;81mx") ==
+      @[@[Span(text: "x", style: Style(fg: indexed(81)))]]
+    check parseAnsi("\e[48;2;1;2;255mx") ==
+      @[@[Span(text: "x", style: Style(bg: Color(kind: ckRgb, r: 1, g: 2, b: 255)))]]
+    check parseAnsi("\e[31;102mx") ==
+      @[@[Span(text: "x", style: Style(fg: indexed(1), bg: indexed(10)))]]
+    check parseAnsi("\e[91;44mx") ==
+      @[@[Span(text: "x", style: Style(fg: indexed(9), bg: indexed(4)))]]
+    check parseAnsi("\e[38;5;999mx")[0][0].style == Style() # out of range
+
+  test "attributes and resets":
+    check parseAnsi("\e[1;2;3;4;9mx")[0][0].style ==
+      Style(bold: true, dim: true, italic: true, underline: true, strikethrough: true)
+    check parseAnsi("\e[1;3;4;9;31;41m\e[22;23;24;29;39;49mx")[0][0].style == Style()
+    check parseAnsi("\e[1;31ma\e[0mb\e[mc") ==
+      @[@[Span(text: "a", style: Style(bold: true, fg: indexed(1))), Span(text: "bc")]]
+
+  test "styles carry across lines; other escapes are dropped":
+    check parseAnsi("\e[1ma\nb") ==
+      @[
+        @[Span(text: "a", style: Style(bold: true))],
+        @[Span(text: "b", style: Style(bold: true))],
+      ]
+    check parseAnsi("a\e[2Kb\e]x") == @[@[Span(text: "abx")]]
+
+suite "syntax highlighting":
+  setup:
+    highlighter = fakeBat
+
+  test "code with a language is colored over the card":
+    let lines = styled("```nim\nlet x\n```", 20)
+    check lines.mapIt(it.plain) == @[top("nim"), row("let x"), blank()]
+    check lines[1] ==
+      @[
+        Span(text: "  ", style: shade),
+        Span(text: "let x", style: shade.merge(keyword)),
+        Span(text: blank(13), style: shade),
+      ]
+
+  test "wrapped rows keep their colors and the width":
+    let md = "```nim\n0123456789abc\n\nx\n```"
+    let lines = styled(md, 12)
+    check lines.mapIt(it.plain) ==
+      @[
+        top("nim", 12),
+        row("0123456789", 12),
+        row("abc", 12),
+        blank(12),
+        row("x", 12),
+        blank(12),
+      ]
+    check lines[2][1] == Span(text: "abc", style: shade.merge(keyword))
+    for width in [3, 8, 12, 30]:
+      check widths(md, width).allIt(it == width)
+
+  test "plain when there is no language":
+    check styled("```\nlet x\n```", 20)[1] == @[Span(text: row("let x"), style: shade)]
+
+  test "plain when the highlighter fails or changes the text":
+    check styled("```nope\nlet x\n```", 20)[1] ==
+      @[Span(text: row("let x"), style: shade)]
+    check styled("```mangle\nlet x\n```", 20)[1] ==
+      @[Span(text: row("let x"), style: shade)]
+
+  test "plain when the highlighter is not installed":
+    highlighter = noHighlighter
+    check styled("```nim\nlet x\n```", 20)[1] ==
+      @[Span(text: row("let x"), style: shade)]
+
+  test "the real bat, if installed":
+    if findExe("bat") == "":
+      skip()
+    else:
+      highlighter = "bat"
+      let md = "```nim\nproc f(x: int) = echo \"hi\" # c\n```"
+      let lines = styled(md, 40)
+      check lines[1].plain == row("proc f(x: int) = echo \"hi\" # c", 40)
+      check lines[1].len > 3

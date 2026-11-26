@@ -59,6 +59,12 @@ flowchart LR
 Rules: features never import each other, never import celina, and never
 import anything of nimslides but `../core`.
 
+`code_fenced` highlights code by running `bat` (`std/osproc`), an optional
+runtime dependency: without it, or when it fails or changes the text, the
+card stays plain. Results are cached per command, language and code, since
+the viewer lays slides out again on every resize. Tests set
+`highlighter` to `tests/fixtures/fake_bat.sh` or a missing command.
+
 ## One feature = three files
 
 A feature task creates or changes only:
@@ -166,6 +172,7 @@ ctx.inlines(raw, base): seq[Span]
 wrap(spans, width): seq[Line]
 ctx.renderBlocks(children, width, gap = 1): seq[Line]   # containers
 ctx.literalRows(lines, style, lead): seq[Line]  # code-like text: hard-wrapped, padded to ctx.width
+ctx.literalRows(lines: seq[Line], style, lead)  # the same for styled lines (e.g. highlighted code), spans drawn over `style`
 ctx.filledRow(style): Line                      # an empty full-width row, e.g. a card's edge
 nodes.spans(ctx, base)                                   # children of an inline node
 node.plainText(ctx); nodes.plainText(ctx)  # text without styles, e.g. image alt text
@@ -179,6 +186,7 @@ for (text, width) in s.clusters     # grapheme clusters; never split one
 fit(s, width): (text, width)        # the leading clusters that fit
 line.fit(width): Line               # the same for a styled Line
 hardWrap(s, width): seq[(text, width)]  # literal text cut into rows, spaces kept (code, tables)
+line.hardWrap(width): seq[(line, width)]  # the same for a styled Line
 
 # styles (core/types.nim)
 Style(bold, italic, underline, dim, strikethrough, fg, bg); base.merge(over); line.plain

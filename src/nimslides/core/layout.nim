@@ -1,6 +1,6 @@
 ## Layout: word wrapping, inline rendering and stacking of blocks.
 
-import std/strutils
+import std/[sequtils, strutils]
 import ./[ast, inlines, registry, types, width]
 
 proc displayWidth*(line: Line): int =
@@ -121,19 +121,39 @@ proc filledRow*(ctx: LayoutCtx, style: Style): Line =
   ## An empty row across the full width in `style`, e.g. a card's edge.
   @[Span(text: ' '.repeat(ctx.width), style: style)]
 
-proc literalRows*(
-    ctx: LayoutCtx, lines: seq[string], style: Style, lead = 0
-): seq[Line] =
+proc hardWrap*(line: Line, width: int): seq[tuple[line: Line, width: int]] =
+  ## Styled `hardWrap`: `line` cut into rows of at most `width` columns
+  ## between grapheme clusters, whitespace and styles kept. A cluster wider
+  ## than `width` gets a row of its own. Always at least one row.
+  result.add (@[], 0)
+  for span in line:
+    for (text, w) in span.text.clusters:
+      if result[^1].width > 0 and result[^1].width + w > width:
+        result.add (@[], 0)
+      result[^1].line.add text, span.style
+      result[^1].width += w
+
+proc literalRows*(ctx: LayoutCtx, lines: seq[Line], style: Style, lead = 0): seq[Line] =
   ## Literal text such as code: each line hard-wrapped, indented by `lead`
-  ## columns and padded to exactly `ctx.width`, all in `style`, so the text
-  ## sits on a solid card. `lead` shrinks to keep a column for the text.
+  ## columns and padded to exactly `ctx.width` on a solid card in `style`.
+  ## Spans are drawn over `style` (`style.merge(span.style)`), so their own
+  ## colors win, e.g. syntax highlighting. `lead` shrinks to keep a column
+  ## for the text.
   let lead = max(0, min(lead, ctx.width - 1))
   for line in lines:
     for row in line.hardWrap(ctx.width - lead):
-      let fill = max(0, ctx.width - lead - row.width)
-      result.add @[
-        Span(text: ' '.repeat(lead) & row.text & ' '.repeat(fill), style: style)
-      ]
+      var drawn: Line
+      drawn.add ' '.repeat(lead), style
+      for span in row.line:
+        drawn.add span.text, style.merge(span.style)
+      drawn.add ' '.repeat(max(0, ctx.width - lead - row.width)), style
+      result.add drawn
+
+proc literalRows*(
+    ctx: LayoutCtx, lines: seq[string], style: Style, lead = 0
+): seq[Line] =
+  ## Unstyled literal text, all in `style`: one span per row.
+  ctx.literalRows(lines.mapIt(@[Span(text: it)]), style, lead)
 
 defaultStyle("paragraph", Style())
 
